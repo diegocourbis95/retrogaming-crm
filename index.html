@@ -1,0 +1,763 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>Retrogaming CRM</title>
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=JetBrains+Mono:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js"></script>
+<style>
+:root{--bg:#F5F0E8;--bg2:#EDE8DC;--bg3:#E2DCD0;--card:#FFFDF8;--card2:#FAF6EC;--border:#D8CFB8;--border2:#B0A48C;--text:#2A1F0E;--text2:#6B5C42;--text3:#9C8A6E;--text4:#C4B69A;--accent:#D4522A;--green:#2D7A3A;--green-bg:#E8F5EA;--purple:#5B3FA0;--purple-bg:#EEE8FF;--yellow:#B88A1F;--yellow-bg:#FFF4D1;--red:#C0392B;--red-bg:#FDECEA;--blue:#1A5FA0;--blue-bg:#E8F0FF;--safe-b:env(safe-area-inset-bottom,0px)}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;height:-webkit-fill-available;overflow:hidden}
+body{font-family:"Inter",system-ui,sans-serif;background:var(--bg);color:var(--text);-webkit-font-smoothing:antialiased;background-image:radial-gradient(circle at 20px 20px,rgba(212,82,42,.035) 1px,transparent 1px),radial-gradient(circle at 60px 60px,rgba(91,63,160,.025) 1px,transparent 1px);background-size:80px 80px}
+#root{height:100vh;height:100dvh;display:flex;flex-direction:column}
+.pixel{font-family:"Press Start 2P",monospace;letter-spacing:1px}
+.mono{font-family:"JetBrains Mono",monospace}
+.pixel-icon{width:28px;height:28px;background:var(--accent);display:grid;grid-template-columns:repeat(7,1fr);grid-template-rows:repeat(7,1fr);gap:1px;padding:3px;border-radius:4px;flex-shrink:0;box-shadow:2px 2px 0 var(--text)}
+.pi{background:rgba(255,255,255,.95);border-radius:1px}.pi.d{background:transparent}
+.btn{font-family:"Press Start 2P",monospace;font-size:8px;padding:9px 12px;border-radius:4px;cursor:pointer;border:2px solid var(--text);letter-spacing:1px;transition:transform .12s,box-shadow .12s;box-shadow:2px 2px 0 var(--text);background:var(--card);color:var(--text);display:inline-flex;align-items:center;gap:6px;white-space:nowrap;line-height:1.2;-webkit-appearance:none}
+.btn:hover{transform:translate(-1px,-1px);box-shadow:3px 3px 0 var(--text)}.btn:active{transform:translate(2px,2px);box-shadow:none}.btn:disabled{opacity:.45;cursor:not-allowed;transform:none!important}
+.btn-primary{background:var(--accent);color:#fff;border-color:var(--accent)}
+.btn-success{background:var(--green-bg);color:var(--green);border-color:var(--green);box-shadow:2px 2px 0 var(--green)}.btn-success:hover{box-shadow:3px 3px 0 var(--green)}.btn-success:active{box-shadow:none}
+.btn-purple{background:var(--purple-bg);color:var(--purple);border-color:var(--purple);box-shadow:2px 2px 0 var(--purple)}.btn-purple:hover{box-shadow:3px 3px 0 var(--purple)}.btn-purple:active{box-shadow:none}
+.btn-ghost{background:transparent;border:1.5px solid var(--border2);color:var(--text2);box-shadow:none;font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:0;padding:7px 11px;font-weight:500}.btn-ghost:hover{background:var(--bg2);transform:none;box-shadow:none}
+.pill{font-family:"Press Start 2P",monospace;font-size:7px;padding:4px 8px;border-radius:99px;letter-spacing:.5px;display:inline-flex;align-items:center;gap:4px}
+.pill-agent{background:var(--green-bg);color:var(--green);border:1.5px solid var(--green)}
+.pill-human{background:var(--purple-bg);color:var(--purple);border:1.5px solid var(--purple)}
+.nice-scroll::-webkit-scrollbar{width:4px;height:4px}.nice-scroll::-webkit-scrollbar-track{background:var(--bg2)}.nice-scroll::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px}
+.typing-dot{width:7px;height:7px;border-radius:50%;background:var(--text3);animation:blink 1.2s infinite;display:inline-block}.typing-dot:nth-child(2){animation-delay:.2s}.typing-dot:nth-child(3){animation-delay:.4s}
+@keyframes blink{0%,80%,100%{opacity:.2}40%{opacity:1}}
+.live-dot{width:7px;height:7px;border-radius:50%;background:var(--green);display:inline-block;animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.5;transform:scale(.8)}}
+.loading-overlay{position:fixed;inset:0;background:var(--bg);z-index:999;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px}
+.loading-bar{width:200px;height:8px;background:var(--bg3);border:2px solid var(--text);border-radius:2px;overflow:hidden}
+.loading-fill{height:100%;background:var(--accent);animation:load 1.5s ease-out forwards}
+@keyframes load{from{width:0%}to{width:100%}}
+.toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%) translateY(80px);z-index:999;font-family:"Press Start 2P",monospace;font-size:7px;padding:10px 16px;border-radius:4px;border:2px solid var(--text);box-shadow:3px 3px 0 var(--text);letter-spacing:.5px;opacity:0;transition:transform .3s,opacity .3s;white-space:nowrap;max-width:90vw;text-align:center}
+.toast.show{transform:translateX(-50%) translateY(0);opacity:1}
+.toast.success{background:var(--green-bg);color:var(--green);border-color:var(--green);box-shadow:3px 3px 0 var(--green)}
+.toast.error{background:var(--red-bg);color:var(--red);border-color:var(--red);box-shadow:3px 3px 0 var(--red)}
+.toast.info{background:var(--blue-bg);color:var(--blue);border-color:var(--blue);box-shadow:3px 3px 0 var(--blue)}
+.modal-overlay{position:fixed;inset:0;background:rgba(42,31,14,.65);z-index:200;display:flex;align-items:flex-end;justify-content:center;backdrop-filter:blur(2px)}
+.modal-overlay.hidden{display:none}
+.modal{background:var(--card);border:3px solid var(--text);border-radius:12px 12px 0 0;box-shadow:0 -4px 0 var(--border);width:100%;max-width:520px;max-height:90vh;overflow-y:auto}
+.modal-hdr{background:var(--card2);border-bottom:2px solid var(--border);padding:14px 16px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:1}
+.nav-tab{font-family:"Press Start 2P",monospace;font-size:7px;letter-spacing:1px;padding:0 16px;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;cursor:pointer;border:none;background:transparent;color:var(--text2);border-bottom:3px solid transparent;transition:color .15s,border-color .15s;-webkit-appearance:none}
+.nav-tab:hover{color:var(--accent)}.nav-tab.active{color:var(--accent);border-bottom-color:var(--accent)}
+.tab-sub{font-family:"JetBrains Mono",monospace;font-size:9px;letter-spacing:0;color:var(--text3)}.nav-tab.active .tab-sub{color:var(--accent)}
+.btn-menu{display:none;background:var(--accent);color:#fff;border:2px solid var(--text);border-radius:4px;width:34px;height:34px;align-items:center;justify-content:center;cursor:pointer;box-shadow:2px 2px 0 var(--text);font-size:15px;flex-shrink:0}
+.btn-menu:active{box-shadow:none;transform:translate(2px,2px)}
+.btn-back{display:none;background:var(--bg2);color:var(--text);border:2px solid var(--border2);border-radius:4px;width:34px;height:34px;align-items:center;justify-content:center;cursor:pointer;box-shadow:2px 2px 0 var(--border2);font-size:20px;flex-shrink:0;font-weight:bold}
+.btn-back:active{box-shadow:none;transform:translate(2px,2px)}
+.btn-media{background:var(--blue-bg);color:var(--blue);border:2px solid var(--blue);border-radius:4px;box-shadow:2px 2px 0 var(--blue);width:40px;height:40px;cursor:pointer;font-size:17px;flex-shrink:0;transition:transform .1s,box-shadow .1s;display:flex;align-items:center;justify-content:center}
+.btn-media:active{transform:translate(2px,2px);box-shadow:none}.btn-media:disabled{opacity:.35;cursor:not-allowed}
+.drop-zone{border:3px dashed var(--border2);border-radius:6px;padding:26px 16px;text-align:center;cursor:pointer;background:var(--bg);position:relative;transition:border-color .2s,background .2s}
+.drop-zone:hover,.drop-zone.drag-over{border-color:var(--blue);background:var(--blue-bg)}
+.drop-zone input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%}
+.progress-bar{width:100%;height:8px;background:var(--bg3);border:2px solid var(--text);border-radius:2px;overflow:hidden}
+.progress-fill{height:100%;background:var(--blue);transition:width .3s ease;width:0%}
+@media(max-width:640px){.btn-menu{display:inline-flex}.btn-back{display:inline-flex}.tab-sub{display:none}.nav-tab{font-size:6px;padding:0 10px}}
+@media(min-width:641px){.btn-menu{display:none!important}.btn-back{display:none!important}}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<div class="toast" id="toast"></div>
+<div class="modal-overlay hidden" id="mediaModal">
+  <div class="modal">
+    <div class="modal-hdr">
+      <span class="pixel" style="font-size:8px">ENVIAR FOTO / VIDEO</span>
+      <button class="btn btn-ghost" style="font-size:10px;padding:5px 9px" onclick="cerrarModal()">X</button>
+    </div>
+    <div style="padding:16px">
+      <div class="drop-zone" id="dropZone">
+        <input type="file" id="fileInput" accept="image/*,video/*" multiple onchange="archivoSeleccionado(event)">
+        <div style="font-size:32px;margin-bottom:10px">&#128193;</div>
+        <div class="pixel" style="font-size:7px;color:var(--text2);line-height:2">TOCA PARA SELECCIONAR</div>
+        <div class="mono" style="font-size:11px;color:var(--text3);margin-top:6px">JPG / PNG / WEBP / MP4 (max 16MB)</div>
+      </div>
+      <div id="mediaPreview" style="display:none;margin-top:12px">
+        <div style="border:2px solid var(--border);border-radius:4px;padding:10px;background:var(--bg2);display:flex;align-items:center;gap:10px">
+          <div id="previewThumb"></div>
+          <div style="flex:1;min-width:0">
+            <div id="previewName" class="mono" style="font-size:11px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></div>
+            <div id="previewSize" class="mono" style="font-size:10px;color:var(--text3);margin-top:3px"></div>
+          </div>
+          <button onclick="limpiarArchivo()" style="background:var(--red-bg);color:var(--red);border:1px solid var(--red);border-radius:3px;padding:4px 8px;font-family:Press Start 2P,monospace;font-size:6px;cursor:pointer">X</button>
+        </div>
+      </div>
+      <div id="uploadProgress" style="display:none;margin-top:10px">
+        <div id="progressLabel" class="pixel" style="font-size:6px;color:var(--text2);margin-bottom:6px">ENVIANDO...</div>
+        <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
+      </div>
+      <div class="pixel" style="font-size:6px;color:var(--text2);margin:14px 0 6px">CAPTION (OPCIONAL)</div>
+      <textarea id="captionInput" placeholder="Mensaje para acompañar el archivo..." rows="2" style="width:100%;background:var(--bg2);border:2px solid var(--border2);border-radius:4px;padding:9px 10px;font-family:Inter,sans-serif;font-size:16px;color:var(--text);outline:none;resize:none;-webkit-appearance:none"></textarea>
+    </div>
+    <div style="padding:12px 16px calc(12px + var(--safe-b));display:flex;gap:8px;justify-content:flex-end;border-top:2px solid var(--border)">
+      <button class="btn btn-ghost" onclick="cerrarModal()">CANCELAR</button>
+      <button class="btn btn-primary" id="btnSendMedia" onclick="enviarMedia()" disabled>ENVIAR</button>
+    </div>
+  </div>
+</div>
+<script>
+const SUPABASE_URL='https://txbtmshmtustcrtpjqaj.supabase.co';
+const SUPABASE_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR4YnRtc2htdHVzdGNydHBqcWFqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4OTAyODAsImV4cCI6MjA5MjQ2NjI4MH0.QtiBvL60BvP0fEqZa2cfo1Lc-65U-F0JCAh9jJzeShM';
+const WA_TOKEN='EAAhdIjlJTN4BRNVPVK3Pxu8zrZCtoJUS6EAzkOwmvYNJHCylkLEA58d4hrQcot2XKEEWakOpztW2OfuY2PIgefokfsHNz8KLrvja0hKNBRGcMo9D6ZAyyo1L8WZCHWKhFkphzGvDNI90PkZAKoIGmDj0pYv3ZC7U4Omt0kAzUqmJSOcQ6cIqfHONrZC4W5u5OTSfqUBvLwYg7px93z9jTsG9nvsWlzXFdN8XGYZBz7T';
+const WA_PHONE_ID='1057954690733010';
+const sb=supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
+
+function showToast(msg,type,dur){type=type||'info';dur=dur||3000;var t=document.getElementById('toast');t.textContent=msg;t.className='toast '+type+' show';setTimeout(function(){t.classList.remove('show');},dur);}
+
+var archivoActual=null,mediaActivePhone=null;
+function abrirModal(phone,mode){if(!phone||mode!=='humano')return;mediaActivePhone=phone;document.getElementById('mediaModal').classList.remove('hidden');limpiarArchivo();}
+function cerrarModal(){document.getElementById('mediaModal').classList.add('hidden');limpiarArchivo();}
+function archivoSeleccionado(e){
+  var files=Array.from(e.target.files);
+  if(files.length===0)return;
+  if(files.length===1){procesarArchivo(files[0]);return;}
+  // Múltiples archivos: enviar todos en secuencia
+  enviarMultiples(files);
+}
+async function enviarMultiples(files){
+  var validos=files.filter(function(f){
+    var valid=['image/jpeg','image/png','image/webp','image/gif','video/mp4','video/3gpp','video/quicktime'];
+    return valid.indexOf(f.type)>=0 && f.size<=16777216;
+  });
+  if(validos.length===0){showToast('NINGÚN ARCHIVO VÁLIDO','error');return;}
+  cerrarModal();
+  showToast('ENVIANDO '+validos.length+' ARCHIVOS...','info',5000);
+  var ok=0;
+  for(var i=0;i<validos.length;i++){
+    try{
+      var file=validos[i];
+      var fd=new FormData();fd.append('messaging_product','whatsapp');fd.append('file',file,file.name);fd.append('type',file.type);
+      var upR=await fetch('https://graph.facebook.com/v19.0/'+WA_PHONE_ID+'/media',{method:'POST',headers:{Authorization:'Bearer '+WA_TOKEN},body:fd});
+      if(!upR.ok)continue;
+      var upD=await upR.json();var mediaId=upD.id;
+      var mt=file.type.startsWith('image/')?'image':'video';
+      var body={messaging_product:'whatsapp',to:mediaActivePhone,type:mt};
+      body[mt]={id:mediaId};
+      var sendR=await fetch('https://graph.facebook.com/v19.0/'+WA_PHONE_ID+'/messages',{method:'POST',headers:{Authorization:'Bearer '+WA_TOKEN,'Content-Type':'application/json'},body:JSON.stringify(body)});
+      if(!sendR.ok)continue;
+      // Subir a Supabase Storage para URL pública permanente
+      var storageUrl2=null;
+      try{
+        var ext2=file.name.split('.').pop();
+        var fileName2='media/'+Date.now()+'-'+i+'.'+ext2;
+        var upSB2=await sb.storage.from('crm-media').upload(fileName2,file,{contentType:file.type,upsert:false});
+        if(!upSB2.error){
+          var pubUrl2=sb.storage.from('crm-media').getPublicUrl(fileName2);
+          storageUrl2=pubUrl2.data&&pubUrl2.data.publicUrl||null;
+        }
+      }catch(e4){console.error('Storage error:',e4);}
+      var finalUrl=storageUrl2||URL.createObjectURL(file);
+      await sb.from('conversaciones').insert({phone:mediaActivePhone,rol:'humano',mensaje:'[MEDIA]',media_url:finalUrl,media_type:file.type,leido:true});
+      ok++;
+    }catch(e){console.error(e);}
+  }
+  showToast(ok+' DE '+validos.length+' ENVIADOS','success');
+  if(window.__crm_refresh)window.__crm_refresh();
+}
+
+function procesarArchivo(file){
+  var valid=['image/jpeg','image/png','image/webp','image/gif','video/mp4','video/3gpp','video/quicktime'];
+  if(valid.indexOf(file.type)<0){showToast('TIPO NO SOPORTADO','error');return;}
+  if(file.size>16777216){showToast('MAX 16MB','error');return;}
+  archivoActual=file;
+  var isImg=file.type.startsWith('image/');
+  document.getElementById('previewThumb').innerHTML=isImg
+    ?'<img src="'+URL.createObjectURL(file)+'" style="width:50px;height:50px;object-fit:cover;border-radius:3px;border:2px solid var(--border2)">'
+    :'<div style="width:50px;height:50px;background:var(--bg3);border-radius:3px;border:2px solid var(--border2);display:flex;align-items:center;justify-content:center;font-size:14px">VIDEO</div>';
+  document.getElementById('previewName').textContent=file.name;
+  var sz=file.size<1048576?(file.size/1024).toFixed(1)+' KB':(file.size/1048576).toFixed(1)+' MB';
+  document.getElementById('previewSize').textContent=sz;
+  document.getElementById('mediaPreview').style.display='block';
+  document.getElementById('btnSendMedia').disabled=false;
+}
+function limpiarArchivo(){
+  archivoActual=null;document.getElementById('fileInput').value='';
+  document.getElementById('mediaPreview').style.display='none';
+  document.getElementById('uploadProgress').style.display='none';
+  document.getElementById('captionInput').value='';
+  document.getElementById('btnSendMedia').disabled=true;
+  document.getElementById('progressFill').style.width='0%';
+  document.getElementById('progressFill').style.background='var(--blue)';
+}
+async function enviarMedia(){
+  if(!archivoActual||!mediaActivePhone)return;
+  var caption=document.getElementById('captionInput').value.trim();
+  var fill=document.getElementById('progressFill'),label=document.getElementById('progressLabel');
+  document.getElementById('btnSendMedia').disabled=true;
+  document.getElementById('uploadProgress').style.display='block';
+  try{
+    label.textContent='SUBIENDO...';fill.style.width='30%';
+    var fd=new FormData();fd.append('messaging_product','whatsapp');fd.append('file',archivoActual,archivoActual.name);fd.append('type',archivoActual.type);
+    var upR=await fetch('https://graph.facebook.com/v19.0/'+WA_PHONE_ID+'/media',{method:'POST',headers:{Authorization:'Bearer '+WA_TOKEN},body:fd});
+    if(!upR.ok){var eU=await upR.json();throw new Error(eU.error&&eU.error.message||'Error subida');}
+    var upD=await upR.json();var mediaId=upD.id;
+    fill.style.width='65%';label.textContent='ENVIANDO...';
+    var mt=archivoActual.type.startsWith('image/')?'image':'video';
+    var body={messaging_product:'whatsapp',to:mediaActivePhone,type:mt};
+    body[mt]={id:mediaId};if(caption)body[mt].caption=caption;
+    var sendR=await fetch('https://graph.facebook.com/v19.0/'+WA_PHONE_ID+'/messages',{method:'POST',headers:{Authorization:'Bearer '+WA_TOKEN,'Content-Type':'application/json'},body:JSON.stringify(body)});
+    if(!sendR.ok){var eS=await sendR.json();throw new Error(eS.error&&eS.error.message||'Error envio');}
+    fill.style.width='90%';
+    await sb.from('conversaciones').insert({phone:mediaActivePhone,rol:'humano',mensaje:caption||'[MEDIA]',media_url:URL.createObjectURL(archivoActual),media_type:archivoActual.type,leido:true});
+    fill.style.width='100%';label.textContent='LISTO';
+    showToast('MEDIA ENVIADA','success');
+    setTimeout(cerrarModal,700);
+    if(window.__crm_refresh)window.__crm_refresh();
+  }catch(err){
+    console.error(err);showToast('ERROR: '+err.message,'error',5000);
+    label.textContent='ERROR';fill.style.background='var(--red)';
+    document.getElementById('btnSendMedia').disabled=false;
+  }
+}
+document.addEventListener('DOMContentLoaded',function(){
+  var zone=document.getElementById('dropZone');
+  zone.addEventListener('dragover',function(e){e.preventDefault();zone.classList.add('drag-over');});
+  zone.addEventListener('dragleave',function(){zone.classList.remove('drag-over');});
+  zone.addEventListener('drop',function(e){e.preventDefault();zone.classList.remove('drag-over');if(e.dataTransfer.files[0])procesarArchivo(e.dataTransfer.files[0]);});
+  document.getElementById('mediaModal').addEventListener('click',function(e){if(e.target===document.getElementById('mediaModal'))cerrarModal();});
+  document.addEventListener('keydown',function(e){if(e.key==='Escape')cerrarModal();});
+});
+</script>
+<script type="text/babel">
+const {useState,useEffect,useRef,useCallback}=React;
+
+function Avatar({name,size}){
+  size=size||36;
+  var colors=['#D4522A','#5B3FA0','#2D7A3A','#1A5FA0','#C72D7E','#B88A1F'];
+  var bg=colors[(name||'').charCodeAt(0)%colors.length];
+  var initials=(name||'??').split(' ').map(function(s){return s[0];}).slice(0,2).join('').toUpperCase();
+  return React.createElement('div',{style:{width:size,height:size,borderRadius:6,background:bg,color:'#fff',display:'flex',alignItems:'center',justifyContent:'center',fontFamily:'"Press Start 2P",monospace',fontSize:size*0.28,border:'2px solid #2A1F0E',boxShadow:'2px 2px 0 #2A1F0E',flexShrink:0}},initials);
+}
+
+function PixelLogo(){
+  var p=[1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,0,0,0,0,1,0,1,1,1,1,1,0,1,0,0,0,0,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1];
+  return React.createElement('div',{className:'pixel-icon'},p.map(function(v,i){return React.createElement('div',{key:i,className:'pi '+(v?'':'d')});}));
+}
+
+
+function AudioRecorder({phone,mode}){
+  var [recording,setRecording]=React.useState(false);
+  var [sending,setSending]=React.useState(false);
+  var mediaRef=React.useRef(null);
+  var chunksRef=React.useRef([]);
+
+  async function toggleRecord(){
+    if(mode!=='humano')return;
+    if(recording){
+      mediaRef.current&&mediaRef.current.stop();
+    }else{
+      try{
+        var stream=await navigator.mediaDevices.getUserMedia({audio:true});
+        var mr=new MediaRecorder(stream);
+        chunksRef.current=[];
+        mr.ondataavailable=function(e){if(e.data.size>0)chunksRef.current.push(e.data);};
+        mr.onstop=async function(){
+          stream.getTracks().forEach(function(t){t.stop();});
+          setRecording(false);
+          setSending(true);
+          try{
+            var blob=new Blob(chunksRef.current,{type:'audio/ogg; codecs=opus'});
+            var fd=new FormData();
+            fd.append('messaging_product','whatsapp');
+            fd.append('file',blob,'audio.ogg');
+            fd.append('type','audio/ogg');
+            var upR=await fetch('https://graph.facebook.com/v19.0/'+WA_PHONE_ID+'/media',{method:'POST',headers:{Authorization:'Bearer '+WA_TOKEN},body:fd});
+            if(!upR.ok)throw new Error('Error subida');
+            var upD=await upR.json();
+            var sendR=await fetch('https://graph.facebook.com/v19.0/'+WA_PHONE_ID+'/messages',{
+              method:'POST',headers:{Authorization:'Bearer '+WA_TOKEN,'Content-Type':'application/json'},
+              body:JSON.stringify({messaging_product:'whatsapp',to:phone,type:'audio',audio:{id:upD.id}})
+            });
+            if(!sendR.ok)throw new Error('Error envio');
+            var blobUrl=URL.createObjectURL(blob);
+            await sb.from('conversaciones').insert({phone:phone,rol:'humano',mensaje:'[AUDIO]',media_url:blobUrl,media_type:'audio/ogg',leido:true});
+            showToast('AUDIO ENVIADO','success');
+            if(window.__crm_refresh)window.__crm_refresh();
+          }catch(err){
+            console.error(err);showToast('ERROR: '+err.message,'error',4000);
+          }
+          setSending(false);
+        };
+        mr.start();
+        mediaRef.current=mr;
+        setRecording(true);
+      }catch(e){
+        showToast('ERROR: Permite acceso al microfono','error',4000);
+      }
+    }
+  }
+
+  var disabled=mode!=='humano'||sending;
+  var bg=recording?'var(--red-bg)':sending?'var(--bg3)':'var(--green-bg)';
+  var color=recording?'var(--red)':sending?'var(--text3)':'var(--green)';
+  var border=recording?'var(--red)':sending?'var(--border2)':'var(--green)';
+  var icon=recording?'⏹':'🎤';
+
+  return React.createElement('button',{
+    onClick:toggleRecord,
+    disabled:disabled,
+    title:recording?'Detener grabacion':'Grabar audio',
+    style:{
+      background:bg,color:color,border:'2px solid '+border,
+      borderRadius:4,boxShadow:'2px 2px 0 '+border,
+      width:40,height:40,cursor:disabled?'not-allowed':'pointer',fontSize:17,flexShrink:0,
+      transition:'all .2s',display:'flex',alignItems:'center',justifyContent:'center',
+      opacity:disabled&&!recording?0.35:1,
+      animation:recording?'pulse 1s infinite':''
+    }
+  },sending?'⏳':icon);
+}
+
+function InboxView({isMobile,showSidebar,setShowSidebar}){
+  var [clientes,setClientes]=useState([]);
+  var [activePhone,setActivePhone]=useState(null);
+  var [activeMode,setActiveMode]=useState('agente');
+  var [mensajes,setMensajes]=useState([]);
+  var [search,setSearch]=useState('');
+  var [filter,setFilter]=useState('all');
+  var [draft,setDraft]=useState('');
+  var msgsRef=useRef(null);
+  var active=clientes.find(function(c){return c.phone===activePhone;});
+
+  var cargarClientes=useCallback(async function(){
+    var r=await sb.from('conversaciones').select('*').not('phone','is',null).order('created_at',{ascending:false});
+    var convs=r.data;
+    if(!convs)return;
+    var mapa={};
+    convs.forEach(function(msg){
+      if(!msg.phone)return;
+      if(!mapa[msg.phone])mapa[msg.phone]={phone:msg.phone,nombre:null,modo:'agente',conversaciones:[]};
+      mapa[msg.phone].conversaciones.push(msg);
+    });
+    var r2=await sb.from('clientes').select('phone,nombre,modo');
+    if(r2.data)r2.data.forEach(function(c){if(mapa[c.phone]){mapa[c.phone].modo=c.modo||'agente';mapa[c.phone].nombre=c.nombre;}});
+    var list=Object.values(mapa).sort(function(a,b){return((b.conversaciones[0]&&b.conversaciones[0].created_at)||'').localeCompare((a.conversaciones[0]&&a.conversaciones[0].created_at)||'');});
+    setClientes(list);
+  },[]);
+
+  var cargarMensajes=useCallback(async function(phone){
+    var r=await sb.from('conversaciones').select('*').eq('phone',phone).order('created_at',{ascending:true});
+    setMensajes(r.data||[]);
+  },[]);
+
+  var activePhoneRef=useRef(activePhone);
+  useEffect(function(){activePhoneRef.current=activePhone;},[activePhone]);
+
+  useEffect(function(){
+    cargarClientes();
+    window.__crm_refresh=cargarClientes;
+
+    var ch=sb.channel('inbox-rt-'+Date.now())
+      .on('postgres_changes',{event:'*',schema:'public',table:'conversaciones'},function(){
+        cargarClientes();
+        if(activePhoneRef.current)cargarMensajes(activePhoneRef.current);
+      })
+      .on('postgres_changes',{event:'*',schema:'public',table:'clientes'},cargarClientes)
+      .subscribe(function(status){console.log('Realtime:',status);});
+
+    var polling=setInterval(function(){
+      cargarClientes();
+      if(activePhoneRef.current)cargarMensajes(activePhoneRef.current);
+    },5000);
+
+    return function(){sb.removeChannel(ch);clearInterval(polling);};
+  },[]);
+
+  useEffect(function(){if(activePhone)cargarMensajes(activePhone);},[activePhone,cargarMensajes]);
+  useEffect(function(){if(msgsRef.current)msgsRef.current.scrollTop=msgsRef.current.scrollHeight;},[mensajes]);
+
+  var filtrados=clientes.filter(function(c){
+    if(search&&!(c.nombre||c.phone).toLowerCase().includes(search.toLowerCase()))return false;
+    if(filter==='unread')return(c.conversaciones||[]).some(function(m){return !m.leido&&m.rol==='cliente';});
+    if(filter==='human')return c.modo==='humano';
+    if(filter==='bot')return c.modo==='agente';
+    return true;
+  });
+
+  async function abrirConv(phone){
+    var cl=clientes.find(function(c){return c.phone===phone;});
+    if(!cl)return;
+    setActivePhone(phone);setActiveMode(cl.modo);
+    if(isMobile)setShowSidebar(false);
+    await sb.from('conversaciones').update({leido:true}).eq('phone',phone).eq('rol','cliente');
+    await cargarMensajes(phone);
+  }
+
+  async function tomarControl(){
+    if(!activePhone)return;
+    await sb.from('clientes').update({modo:'humano'}).eq('phone',activePhone);
+    setActiveMode('humano');
+    setClientes(function(prev){return prev.map(function(c){return c.phone===activePhone?Object.assign({},c,{modo:'humano'}):c;});});
+  }
+
+  async function devolverAgente(){
+    if(!activePhone)return;
+    await sb.from('clientes').update({modo:'agente'}).eq('phone',activePhone);
+    setActiveMode('agente');
+    setClientes(function(prev){return prev.map(function(c){return c.phone===activePhone?Object.assign({},c,{modo:'agente'}):c;});});
+  }
+
+  async function enviar(){
+    if(!draft.trim()||!activePhone||activeMode!=='humano')return;
+    var texto=draft.trim();setDraft('');
+    await sb.from('conversaciones').insert({phone:activePhone,rol:'humano',mensaje:texto,leido:true});
+    try{
+      await fetch('https://graph.facebook.com/v19.0/'+WA_PHONE_ID+'/messages',{
+        method:'POST',headers:{Authorization:'Bearer '+WA_TOKEN,'Content-Type':'application/json'},
+        body:JSON.stringify({messaging_product:'whatsapp',to:activePhone,type:'text',text:{body:texto}})
+      });
+    }catch(e){console.error(e);}
+    await cargarMensajes(activePhone);
+  }
+
+  var sidebarStyle=isMobile?{position:'absolute',inset:0,width:'100%',zIndex:20,transform:showSidebar?'translateX(0)':'translateX(-100%)',transition:'transform .28s cubic-bezier(.4,0,.2,1)'}:{};
+
+  return (
+    <div style={{display:'flex',flex:1,overflow:'hidden',position:'relative'}}>
+      {/* SIDEBAR */}
+      <div style={{background:'var(--card)',borderRight:'2px solid var(--text)',display:'flex',flexDirection:'column',minHeight:0,width:300,flexShrink:0,...sidebarStyle}}>
+        <div style={{padding:14,borderBottom:'1.5px solid var(--border)',background:'var(--card2)',flexShrink:0}}>
+          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:10}}>
+            <span className="pixel" style={{fontSize:8}}>INBOX</span>
+            <span className="mono" style={{fontSize:11,color:'var(--text3)'}}>{clientes.length} chats</span>
+          </div>
+          <div style={{position:'relative'}}>
+            <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Buscar cliente..."
+              style={{width:'100%',padding:'9px 10px',fontFamily:'"JetBrains Mono",monospace',fontSize:13,border:'1.5px solid var(--border)',borderRadius:6,background:'var(--card)',color:'var(--text)',outline:'none'}}
+              onFocus={e=>e.target.style.borderColor='var(--accent)'}
+              onBlur={e=>e.target.style.borderColor='var(--border)'}/>
+          </div>
+          <div style={{display:'flex',gap:4,marginTop:10}}>
+            {[['all','TODOS'],['unread','NUEVOS'],['human','YO'],['bot','BOT']].map(([k,l])=>(
+              <button key={k} onClick={()=>setFilter(k)}
+                style={{flex:1,padding:'6px 4px',fontFamily:'"Press Start 2P",monospace',fontSize:6,letterSpacing:1,cursor:'pointer',
+                  border:'1.5px solid '+(filter===k?'var(--text)':'var(--border)'),
+                  background:filter===k?'var(--accent)':'transparent',
+                  color:filter===k?'#fff':'var(--text2)',borderRadius:4}}>{l}</button>
+            ))}
+          </div>
+        </div>
+        <div className="nice-scroll" style={{flex:1,overflowY:'auto'}}>
+          {filtrados.map(c=>{
+            var convs=c.conversaciones||[];
+            var sorted=[...convs].sort((a,b)=>new Date(b.created_at)-new Date(a.created_at));
+            var ultimo=sorted[0];
+            var noLeidos=convs.filter(m=>!m.leido&&m.rol==='cliente').length;
+            var hora=ultimo?new Date(ultimo.created_at).toLocaleTimeString('es-CL',{hour:'2-digit',minute:'2-digit'}):'';
+            var preview=ultimo?(ultimo.media_url?'[ARCHIVO] '+(ultimo.mensaje!=='[MEDIA]'?ultimo.mensaje:''):ultimo.mensaje.substring(0,36)+(ultimo.mensaje.length>36?'...':'')):'';
+            var isActive=c.phone===activePhone;
+            return(
+              <div key={c.phone} onClick={()=>abrirConv(c.phone)}
+                style={{padding:13,borderBottom:'1px solid var(--border)',cursor:'pointer',
+                  background:isActive?'var(--yellow-bg)':'transparent',
+                  borderLeft:isActive?'4px solid var(--accent)':'4px solid transparent',position:'relative'}}
+                onMouseOver={e=>{if(!isActive)e.currentTarget.style.background='var(--bg2)';}}
+                onMouseOut={e=>{if(!isActive)e.currentTarget.style.background='transparent';}}>
+                <div style={{display:'flex',gap:10,alignItems:'flex-start'}}>
+                  <Avatar name={c.nombre||c.phone} size={38}/>
+                  <div style={{flex:1,minWidth:0}}>
+                    <div style={{display:'flex',justifyContent:'space-between',gap:6,marginBottom:3}}>
+                      <span className="mono" style={{fontSize:13,fontWeight:600,color:isActive?'var(--accent)':'var(--text)',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{c.nombre||c.phone}</span>
+                      <span className="mono" style={{fontSize:12,color:'var(--text3)',flexShrink:0}}>{hora}</span>
+                    </div>
+                    <div style={{display:'flex',justifyContent:'space-between',gap:6,alignItems:'center'}}>
+                      <span style={{fontSize:12,color:'var(--text2)',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis',flex:1}}>{preview}</span>
+                      <span className={'pill '+(c.modo==='humano'?'pill-human':'pill-agent')} style={{fontSize:6,padding:'2px 5px'}}>{c.modo==='humano'?'TU':'BOT'}</span>
+                    </div>
+                  </div>
+                </div>
+                {noLeidos>0&&<div style={{position:'absolute',top:13,right:13,background:'var(--accent)',color:'#fff',fontFamily:'"Press Start 2P",monospace',fontSize:7,padding:'3px 5px',borderRadius:99,minWidth:18,textAlign:'center'}}>{noLeidos}</div>}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* CHAT */}
+      <div style={{flex:1,display:'flex',flexDirection:'column',minHeight:0,minWidth:0,background:'var(--bg)'}}>
+        {!active?(
+          <div style={{flex:1,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',gap:14}}>
+            <div style={{fontSize:40}}>RETROGAMING</div>
+            <div className="pixel" style={{fontSize:8,color:'var(--text3)',textAlign:'center',lineHeight:2.2}}>SELECCIONA UNA CONVERSACION</div>
+          </div>
+        ):(
+          <>
+            <div style={{padding:'10px 14px',background:'var(--card)',borderBottom:'2px solid var(--text)',boxShadow:'0 3px 0 var(--border)',display:'flex',alignItems:'center',justifyContent:'space-between',gap:8,flexShrink:0}}>
+              <div style={{display:'flex',alignItems:'center',gap:9,minWidth:0,flex:1}}>
+                <button className="btn-back" onClick={()=>setShowSidebar(true)}>&#8249;</button>
+                <Avatar name={active.nombre||active.phone} size={36}/>
+                <div style={{minWidth:0}}>
+                  <div className="mono" style={{fontSize:14,fontWeight:600,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{active.nombre||active.phone}</div>
+                  <div className="mono" style={{fontSize:10,color:'var(--text2)',marginTop:2}}>{active.phone}</div>
+                </div>
+              </div>
+              <div style={{display:'flex',gap:6,alignItems:'center',flexShrink:0}}>
+                <span className={'pill '+(activeMode==='humano'?'pill-human':'pill-agent')} style={{fontSize:6}}>{activeMode==='humano'?'TU':'IA'}</span>
+                {activeMode==='humano'
+                  ?<button className="btn btn-success" onClick={devolverAgente}>DEVOLVER</button>
+                  :<button className="btn btn-purple" onClick={tomarControl}>CONTROL</button>}
+              </div>
+            </div>
+            {activeMode==='humano'&&(
+              <div style={{background:'var(--purple-bg)',borderBottom:'1.5px solid var(--purple)',padding:'7px 16px',fontFamily:'"Press Start 2P",monospace',fontSize:7,color:'var(--purple)',letterSpacing:1,flexShrink:0}}>
+                MODO MANUAL - AGENTE IA PAUSADO
+              </div>
+            )}
+            <div ref={msgsRef} className="nice-scroll" style={{flex:1,overflowY:'auto',padding:16,display:'flex',flexDirection:'column',gap:12,minHeight:0}}>
+              {mensajes.map((m,i)=>{
+                var right=m.rol!=='cliente';
+                var bg=m.rol==='cliente'?'var(--card)':m.rol==='agente'?'var(--purple)':'var(--green)';
+                var color=m.rol==='cliente'?'var(--text)':'#fff';
+                var label=m.rol==='cliente'?'CLIENTE':m.rol==='agente'?'AGENTE IA':'TU';
+                var hora=new Date(m.created_at).toLocaleTimeString('es-CL',{hour:'2-digit',minute:'2-digit'});
+                var contenido=null;
+                if(m.media_url&&m.media_type){
+                  if(m.media_type.startsWith('image/')){
+                    contenido=<img src={m.media_url} style={{maxWidth:'100%',maxHeight:200,borderRadius:3,display:'block',cursor:'pointer'}} onClick={()=>window.open(m.media_url,'_blank')}/>;
+                  }else if(m.media_type.startsWith('audio/')){
+                    contenido=<audio controls style={{width:'100%',minWidth:200,marginTop:2}}><source src={m.media_url} type={m.media_type}/></audio>;
+                  }else{
+                    contenido=<video controls playsInline style={{maxWidth:'100%',borderRadius:3,display:'block'}}><source src={m.media_url} type={m.media_type}/></video>;
+                  }
+                  if(m.mensaje&&m.mensaje!=='[MEDIA]'&&m.mensaje!=='[AUDIO]')contenido=<>{contenido}<div style={{fontSize:13,marginTop:4}}>{m.mensaje}</div></>;
+                }else if(m.mensaje==='[AUDIO]'){
+                  contenido=<div style={{fontSize:12,color:'var(--text3)',fontStyle:'italic'}}>🎤 Audio (sin URL guardada)</div>;
+                }else{contenido=m.mensaje;}
+                return(
+                  <div key={i} style={{display:'flex',flexDirection:'column',alignItems:right?'flex-end':'flex-start',gap:3}}>
+                    <span className="pixel" style={{fontSize:6,color:'var(--text3)',padding:'0 4px'}}>{label}</span>
+                    <div style={{maxWidth:'74%',padding:'10px 13px',fontSize:14,lineHeight:1.5,borderRadius:4,border:'2px solid '+(m.rol==='cliente'?'var(--text)':bg),background:bg,color,boxShadow:'2px 2px 0 '+(m.rol==='cliente'?'var(--border2)':'rgba(42,31,14,.3)')}}>{contenido}</div>
+                    <span className="mono" style={{fontSize:12,color:'var(--text3)',padding:'0 4px'}}>{hora}</span>
+                  </div>
+                );
+              })}
+            </div>
+            <div style={{padding:'10px 12px',paddingBottom:'calc(10px + var(--safe-b))',background:'var(--card)',borderTop:'2px solid var(--text)',boxShadow:'0 -3px 0 var(--border)',flexShrink:0}}>
+              <div style={{display:'flex',gap:8,alignItems:'flex-end'}}>
+                <button className="btn-media" onClick={()=>abrirModal(activePhone,activeMode)} disabled={activeMode!=='humano'} title="Enviar foto o video">&#128206;</button>
+                <AudioRecorder phone={activePhone} mode={activeMode}/>
+                <textarea value={draft} onChange={e=>setDraft(e.target.value)}
+                  onKeyDown={e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();enviar();}}}
+                  onInput={e=>{e.target.style.height='auto';e.target.style.height=Math.min(e.target.scrollHeight,100)+'px';}}
+                  placeholder={activeMode==='humano'?'Escribe tu mensaje...':'Toma el control para escribir...'}
+                  disabled={activeMode!=='humano'} rows={1}
+                  style={{flex:1,padding:'10px 12px',fontFamily:'Inter,sans-serif',fontSize:16,border:'1.5px solid var(--border2)',borderRadius:6,background:'var(--bg2)',color:'var(--text)',outline:'none',resize:'none',minHeight:40,maxHeight:100,WebkitAppearance:'none'}}/>
+                <button className="btn btn-primary" onClick={enviar} disabled={!draft.trim()||activeMode!=='humano'}>ENVIAR</button>
+              </div>
+              <div className="pixel" style={{fontSize:6,color:'var(--text3)',marginTop:7}}>{activeMode==='humano'?'MODO MANUAL ACTIVO':'TOMA CONTROL PARA ESCRIBIR'}</div>
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+var COLS=[
+  {id:'nuevo',   title:'NUEVO',    icon:'N',color:'var(--blue)',  bg:'var(--blue-bg)'},
+  {id:'cotizado',title:'COTIZADO', icon:'C',color:'var(--yellow)',bg:'var(--yellow-bg)'},
+  {id:'pagado',  title:'PAGADO',   icon:'P',color:'var(--purple)',bg:'var(--purple-bg)'},
+  {id:'enviado', title:'ENVIADO',  icon:'E',color:'var(--green)', bg:'var(--green-bg)'},
+];
+
+function PipelineView(){
+  var [clientes,setClientes]=useState([]);
+  var [dragId,setDragId]=useState(null);
+  var [overCol,setOverCol]=useState(null);
+  var [loading,setLoading]=useState(true);
+
+  var [showArchived,setShowArchived]=useState(false);
+
+  var cargar=useCallback(async function(){
+    var r=await sb.from('clientes').select('phone,nombre,modo,consola_interes,color_interes,created_at,etapa,archivado').order('created_at',{ascending:false});
+    setClientes(r.data||[]);setLoading(false);
+  },[]);
+
+  async function archivar(phone){
+    if(!confirm('¿Archivar este lead? Desaparecerá del pipeline activo.'))return;
+    await sb.from('clientes').update({archivado:true}).eq('phone',phone);
+    setClientes(function(prev){return prev.map(function(c){return c.phone===phone?Object.assign({},c,{archivado:true}):c;});});
+    toast('Lead archivado','success');
+  }
+
+  async function desarchivar(phone){
+    await sb.from('clientes').update({archivado:false}).eq('phone',phone);
+    setClientes(function(prev){return prev.map(function(c){return c.phone===phone?Object.assign({},c,{archivado:false}):c;});});
+    toast('Lead restaurado','success');
+  }
+
+  async function eliminar(phone){
+    if(!confirm('¿Eliminar este lead PERMANENTEMENTE? Se borrará del pipeline.'))return;
+    await sb.from('clientes').delete().eq('phone',phone);
+    setClientes(function(prev){return prev.filter(function(c){return c.phone!==phone;});});
+    toast('Lead eliminado','info');
+  }
+
+  useEffect(function(){
+    cargar();
+    var ch=sb.channel('pipeline-rt').on('postgres_changes',{event:'*',schema:'public',table:'clientes'},cargar).subscribe();
+    return function(){sb.removeChannel(ch);};
+  },[cargar]);
+
+  async function mover(phone,etapa){
+    await sb.from('clientes').update({etapa:etapa}).eq('phone',phone);
+    setClientes(function(prev){return prev.map(function(c){return c.phone===phone?Object.assign({},c,{etapa:etapa}):c;});});
+  }
+
+  return(
+    <div style={{display:'flex',flexDirection:'column',flex:1,overflow:'hidden',background:'var(--bg)'}}>
+      <div style={{padding:'14px 20px',borderBottom:'1.5px solid var(--border)',background:'var(--card2)',flexShrink:0}}>
+        <div className="pixel" style={{fontSize:10,color:'var(--accent)',marginBottom:6}}>PIPELINE DE VENTAS</div>
+        <div style={{fontFamily:'Inter,sans-serif',fontSize:18,fontWeight:700,color:'var(--text)'}}>Leads en curso</div>
+        <div className="mono" style={{fontSize:12,color:'var(--text2)',marginTop:4}}>{clientes.filter(function(c){return !c.archivado;}).length} leads activos</div>
+        <div style={{marginTop:8,display:'flex',gap:8}}>
+          <button className={'btn-ghost'} onClick={function(){setShowArchived(!showArchived);}} style={{fontSize:10,padding:'5px 10px',background:showArchived?'var(--yellow-bg)':'transparent',borderColor:showArchived?'var(--yellow)':'var(--border2)',color:showArchived?'var(--yellow)':'var(--text2)'}}>
+            {showArchived?'Ocultar archivados ('+clientes.filter(function(c){return c.archivado;}).length+')':'Ver archivados ('+clientes.filter(function(c){return c.archivado;}).length+')'}
+          </button>
+        </div>
+      </div>
+      <div className="nice-scroll" style={{flex:1,overflowX:'auto',overflowY:'hidden',display:'grid',gridTemplateColumns:'repeat(4,minmax(240px,1fr))',gap:12,padding:16,minHeight:0,alignContent:'start'}}>
+        {COLS.map(function(col){
+          var colClientes=clientes.filter(function(c){return (c.etapa||'nuevo')===col.id && (showArchived ? c.archivado : !c.archivado);});
+          var isOver=overCol===col.id;
+          return(
+            <div key={col.id}
+              onDragOver={function(e){e.preventDefault();setOverCol(col.id);}}
+              onDrop={function(){if(dragId){var cl=clientes.find(function(c){return c.phone===dragId;});if(cl&&(cl.etapa||'nuevo')!==col.id)mover(dragId,col.id);}setDragId(null);setOverCol(null);}}
+              style={{display:'flex',flexDirection:'column',minHeight:0,maxHeight:'calc(100vh - 200px)',
+                background:isOver?col.bg:'var(--card2)',
+                border:'2px '+(isOver?'dashed':'solid')+' '+(isOver?col.color:'var(--border)'),
+                borderRadius:8}}>
+              <div style={{padding:'11px 13px',borderBottom:'2px solid '+col.color,background:col.bg,borderRadius:'6px 6px 0 0',display:'flex',alignItems:'center',gap:8,flexShrink:0}}>
+                <span className="pixel" style={{fontSize:8,color:col.color}}>{col.title}</span>
+                <span style={{background:col.color,color:'#fff',fontFamily:'"Press Start 2P",monospace',fontSize:7,padding:'3px 6px',borderRadius:99,minWidth:18,textAlign:'center'}}>{colClientes.length}</span>
+              </div>
+              <div className="nice-scroll" style={{flex:1,overflowY:'auto',padding:10,display:'flex',flexDirection:'column',gap:9}}>
+                {loading&&<div className="mono" style={{fontSize:11,color:'var(--text3)',textAlign:'center',padding:20}}>Cargando...</div>}
+                {!loading&&colClientes.length===0&&<div style={{padding:16,textAlign:'center',color:'var(--text4)',fontFamily:'"Press Start 2P",monospace',fontSize:7,lineHeight:2}}>SIN LEADS</div>}
+                {colClientes.map(function(c){
+                  var isDragging=dragId===c.phone;
+                  var nombre=c.nombre||c.phone;
+                  var fecha=new Date(c.created_at).toLocaleDateString('es-CL',{day:'2-digit',month:'2-digit'});
+                  return(
+                    <div key={c.phone} draggable
+                      onDragStart={function(){setDragId(c.phone);}}
+                      onDragEnd={function(){setDragId(null);setOverCol(null);}}
+                      style={{background:'var(--card)',border:'2px solid var(--text)',borderRadius:6,boxShadow:'2px 2px 0 var(--text)',
+                        padding:12,cursor:'grab',opacity:isDragging?0.4:1,
+                        transform:isDragging?'rotate(-2deg)':'none',
+                        borderLeft:'5px solid '+col.color}}
+                      onMouseOver={function(e){if(!isDragging){e.currentTarget.style.transform='translate(-1px,-1px)';e.currentTarget.style.boxShadow='3px 3px 0 var(--text)';}}}
+                      onMouseOut={function(e){if(!isDragging){e.currentTarget.style.transform='none';e.currentTarget.style.boxShadow='2px 2px 0 var(--text)';}}}
+                    >
+                      <div style={{display:'flex',gap:8,alignItems:'center',marginBottom:8}}>
+                        <Avatar name={nombre} size={28}/>
+                        <div style={{minWidth:0,flex:1}}>
+                          <div style={{fontFamily:'Inter,sans-serif',fontSize:12,fontWeight:600,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{nombre}</div>
+                          <div className="mono" style={{fontSize:9,color:'var(--text3)',marginTop:1}}>{c.phone}</div>
+                        </div>
+                        <span className={'pill '+(c.modo==='humano'?'pill-human':'pill-agent')} style={{fontSize:6,padding:'2px 4px'}}>{c.modo==='humano'?'TU':'BOT'}</span>
+                      </div>
+                      {c.consola_interes&&<div style={{fontSize:13,color:'var(--text)',fontWeight:500,marginBottom:8}}>🎮 {c.consola_interes}{c.color_interes?' / '+c.color_interes:''}</div>}
+                      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginTop:6,paddingTop:8,borderTop:'1px dashed var(--border)'}}>
+                        <span className="mono" style={{fontSize:12,color:'var(--text3)'}}>{fecha}</span>
+                        <div style={{display:'flex',gap:3}}>
+                          {COLS.filter(function(co){return co.id!==col.id;}).map(function(co){
+                            return(
+                              <button key={co.id} onClick={function(){mover(c.phone,co.id);}} title={'Mover a '+co.title}
+                                style={{padding:'3px 7px',fontFamily:'"Press Start 2P",monospace',fontSize:5,border:'1px solid '+co.color,borderRadius:3,background:co.bg,color:co.color,cursor:'pointer'}}>
+                                {co.title.substring(0,3)}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                      <div style={{display:'flex',gap:4,marginTop:6}}>
+                        {!c.archivado?
+                          <button onClick={function(){archivar(c.phone);}} title="Archivar"
+                            style={{flex:1,padding:'4px 6px',fontFamily:'"Press Start 2P",monospace',fontSize:5,border:'1px solid var(--yellow)',borderRadius:3,background:'var(--yellow-bg)',color:'var(--yellow)',cursor:'pointer'}}>
+                            📦 ARCHIVAR
+                          </button>
+                          :
+                          <button onClick={function(){desarchivar(c.phone);}} title="Restaurar"
+                            style={{flex:1,padding:'4px 6px',fontFamily:'"Press Start 2P",monospace',fontSize:5,border:'1px solid var(--green)',borderRadius:3,background:'var(--green-bg)',color:'var(--green)',cursor:'pointer'}}>
+                            ♻️ RESTAURAR
+                          </button>
+                        }
+                        <button onClick={function(){eliminar(c.phone);}} title="Eliminar permanentemente"
+                          style={{padding:'4px 6px',fontFamily:'"Press Start 2P",monospace',fontSize:5,border:'1px solid var(--red)',borderRadius:3,background:'var(--red-bg)',color:'var(--red)',cursor:'pointer'}}>
+                          🗑️
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function App(){
+  var [tab,setTab]=useState('inbox');
+  var [loading,setLoading]=useState(true);
+  var [showSidebar,setShowSidebar]=useState(true);
+  var isMobile=window.innerWidth<=640;
+  useEffect(function(){setTimeout(function(){setLoading(false);},1400);},[]);
+
+  if(loading)return(
+    <div className="loading-overlay">
+      <div className="pixel" style={{fontSize:11,color:'var(--accent)',letterSpacing:2,textAlign:'center'}}>RETROGAMING CRM</div>
+      <div className="mono" style={{fontSize:12,color:'var(--text2)'}}>Cargando...</div>
+      <div className="loading-bar"><div className="loading-fill"/></div>
+    </div>
+  );
+
+  return(
+    <>
+      <div style={{background:'var(--card)',borderBottom:'2px solid var(--text)',boxShadow:'0 3px 0 var(--border)',display:'flex',alignItems:'center',height:52,flexShrink:0,paddingRight:16}}>
+        <div style={{display:'flex',alignItems:'center',gap:10,padding:'0 14px',borderRight:'2px solid var(--border)',height:'100%',flexShrink:0}}>
+          {isMobile&&tab==='inbox'&&<button className="btn-menu" style={{marginRight:6}} onClick={()=>setShowSidebar(function(s){return !s;})}>&#9776;</button>}
+          <PixelLogo/>
+          <div>
+            <div className="pixel" style={{fontSize:9,color:'var(--accent)'}}>RETROGAMING</div>
+            <div className="mono" style={{fontSize:9,color:'var(--text3)',marginTop:2}}>CRM v3.0</div>
+          </div>
+        </div>
+        <div style={{display:'flex',flex:1,height:'100%',padding:'0 8px'}}>
+          {[{id:'inbox',label:'INBOX',sub:'Conversaciones'},{id:'pipeline',label:'PIPELINE',sub:'Ventas'}].map(function(t){return(
+            <button key={t.id} className={'nav-tab '+(tab===t.id?'active':'')} onClick={function(){setTab(t.id);}}>
+              <span>{t.label}</span>
+              <span className="tab-sub">{t.sub}</span>
+            </button>
+          );})}
+        </div>
+        <div className="mono" style={{fontSize:11,color:'var(--text2)',display:'flex',alignItems:'center',gap:6,flexShrink:0}}>
+          <span className="live-dot"/><span>EN VIVO</span>
+        </div>
+      </div>
+      <div style={{flex:1,overflow:'hidden',display:'flex',position:'relative'}}>
+        {tab==='inbox'&&<InboxView isMobile={isMobile} showSidebar={showSidebar} setShowSidebar={setShowSidebar}/>}
+        {tab==='pipeline'&&<PipelineView/>}
+      </div>
+    </>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(React.createElement(App,null));
+</script>
+</body>
+</html>
