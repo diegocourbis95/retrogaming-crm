@@ -108,8 +108,7 @@ body{font-family:"Inter",system-ui,sans-serif;background:var(--bg);color:var(--t
 <script>
 const SUPABASE_URL='https://txbtmshmtustcrtpjqaj.supabase.co';
 const SUPABASE_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR4YnRtc2htdHVzdGNydHBqcWFqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4OTAyODAsImV4cCI6MjA5MjQ2NjI4MH0.QtiBvL60BvP0fEqZa2cfo1Lc-65U-F0JCAh9jJzeShM';
-const WA_TOKEN='EAAhdIjlJTN4BRNVPVK3Pxu8zrZCtoJUS6EAzkOwmvYNJHCylkLEA58d4hrQcot2XKEEWakOpztW2OfuY2PIgefokfsHNz8KLrvja0hKNBRGcMo9D6ZAyyo1L8WZCHWKhFkphzGvDNI90PkZAKoIGmDj0pYv3ZC7U4Omt0kAzUqmJSOcQ6cIqfHONrZC4W5u5OTSfqUBvLwYg7px93z9jTsG9nvsWlzXFdN8XGYZBz7T';
-const WA_PHONE_ID='1057954690733010';
+const API_URL='https://api.retrogaming.cl';
 const sb=supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
 
 function showToast(msg,type,dur){type=type||'info';dur=dur||3000;var t=document.getElementById('toast');t.textContent=msg;t.className='toast '+type+' show';setTimeout(function(){t.classList.remove('show');},dur);}
@@ -136,14 +135,12 @@ async function enviarMultiples(files){
   for(var i=0;i<validos.length;i++){
     try{
       var file=validos[i];
-      var fd=new FormData();fd.append('messaging_product','whatsapp');fd.append('file',file,file.name);fd.append('type',file.type);
-      var upR=await fetch('https://graph.facebook.com/v19.0/'+WA_PHONE_ID+'/media',{method:'POST',headers:{Authorization:'Bearer '+WA_TOKEN},body:fd});
+      var fd=new FormData();fd.append('file',file,file.name);
+      var upR=await fetch(API_URL+'/wa/upload',{method:'POST',body:fd});
       if(!upR.ok)continue;
       var upD=await upR.json();var mediaId=upD.id;
       var mt=file.type.startsWith('image/')?'image':'video';
-      var body={messaging_product:'whatsapp',to:mediaActivePhone,type:mt};
-      body[mt]={id:mediaId};
-      var sendR=await fetch('https://graph.facebook.com/v19.0/'+WA_PHONE_ID+'/messages',{method:'POST',headers:{Authorization:'Bearer '+WA_TOKEN,'Content-Type':'application/json'},body:JSON.stringify(body)});
+      var sendR=await fetch(API_URL+'/wa/media',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({to:mediaActivePhone,type:mt,media_id:mediaId})});
       if(!sendR.ok)continue;
       // Subir a Supabase Storage para URL pública permanente
       var storageUrl2=null;
@@ -197,15 +194,13 @@ async function enviarMedia(){
   document.getElementById('uploadProgress').style.display='block';
   try{
     label.textContent='SUBIENDO...';fill.style.width='30%';
-    var fd=new FormData();fd.append('messaging_product','whatsapp');fd.append('file',archivoActual,archivoActual.name);fd.append('type',archivoActual.type);
-    var upR=await fetch('https://graph.facebook.com/v19.0/'+WA_PHONE_ID+'/media',{method:'POST',headers:{Authorization:'Bearer '+WA_TOKEN},body:fd});
+    var fd=new FormData();fd.append('file',archivoActual,archivoActual.name);
+    var upR=await fetch(API_URL+'/wa/upload',{method:'POST',body:fd});
     if(!upR.ok){var eU=await upR.json();throw new Error(eU.error&&eU.error.message||'Error subida');}
     var upD=await upR.json();var mediaId=upD.id;
     fill.style.width='65%';label.textContent='ENVIANDO...';
     var mt=archivoActual.type.startsWith('image/')?'image':'video';
-    var body={messaging_product:'whatsapp',to:mediaActivePhone,type:mt};
-    body[mt]={id:mediaId};if(caption)body[mt].caption=caption;
-    var sendR=await fetch('https://graph.facebook.com/v19.0/'+WA_PHONE_ID+'/messages',{method:'POST',headers:{Authorization:'Bearer '+WA_TOKEN,'Content-Type':'application/json'},body:JSON.stringify(body)});
+    var sendR=await fetch(API_URL+'/wa/media',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({to:mediaActivePhone,type:mt,media_id:mediaId,caption:caption||undefined})});
     if(!sendR.ok){var eS=await sendR.json();throw new Error(eS.error&&eS.error.message||'Error envio');}
     fill.style.width='90%';
     await sb.from('conversaciones').insert({phone:mediaActivePhone,rol:'humano',mensaje:caption||'[MEDIA]',media_url:URL.createObjectURL(archivoActual),media_type:archivoActual.type,leido:true});
@@ -247,77 +242,126 @@ function PixelLogo(){
 }
 
 
-function AudioRecorder({phone,mode}){
-  var [recording,setRecording]=React.useState(false);
-  var [sending,setSending]=React.useState(false);
+var STORAGE_BUCKET='crm-media';
+var AUDIO_STEPS={
+  idle:      {icon:'🎤',label:'Grabar audio'},
+  recording: {icon:'⏹', label:'Detener grabación'},
+  uploading: {icon:'⏳',label:'Subiendo a Storage...'},
+  sending_wa:{icon:'⏳',label:'Enviando por WhatsApp...'},
+  notifying: {icon:'⏳',label:'Notificando a n8n...'},
+  saving:    {icon:'⏳',label:'Guardando en BD...'},
+  error:     {icon:'❌',label:'Error — toca para reintentar'},
+};
+
+function AudioRecorder({phone,mode,n8nWebhookUrl,onSent}){
+  var [step,setStep]=React.useState('idle');
+  var [errorMsg,setErrorMsg]=React.useState(null);
   var mediaRef=React.useRef(null);
   var chunksRef=React.useRef([]);
+  var streamRef=React.useRef(null);
 
-  async function toggleRecord(){
-    if(mode!=='humano')return;
-    if(recording){
-      mediaRef.current&&mediaRef.current.stop();
-    }else{
-      try{
-        var stream=await navigator.mediaDevices.getUserMedia({audio:true});
-        var mr=new MediaRecorder(stream);
-        chunksRef.current=[];
-        mr.ondataavailable=function(e){if(e.data.size>0)chunksRef.current.push(e.data);};
-        mr.onstop=async function(){
-          stream.getTracks().forEach(function(t){t.stop();});
-          setRecording(false);
-          setSending(true);
-          try{
-            var blob=new Blob(chunksRef.current,{type:'audio/ogg; codecs=opus'});
-            var fd=new FormData();
-            fd.append('messaging_product','whatsapp');
-            fd.append('file',blob,'audio.ogg');
-            fd.append('type','audio/ogg');
-            var upR=await fetch('https://graph.facebook.com/v19.0/'+WA_PHONE_ID+'/media',{method:'POST',headers:{Authorization:'Bearer '+WA_TOKEN},body:fd});
-            if(!upR.ok)throw new Error('Error subida');
-            var upD=await upR.json();
-            var sendR=await fetch('https://graph.facebook.com/v19.0/'+WA_PHONE_ID+'/messages',{
-              method:'POST',headers:{Authorization:'Bearer '+WA_TOKEN,'Content-Type':'application/json'},
-              body:JSON.stringify({messaging_product:'whatsapp',to:phone,type:'audio',audio:{id:upD.id}})
-            });
-            if(!sendR.ok)throw new Error('Error envio');
-            var blobUrl=URL.createObjectURL(blob);
-            await sb.from('conversaciones').insert({phone:phone,rol:'humano',mensaje:'[AUDIO]',media_url:blobUrl,media_type:'audio/ogg',leido:true});
-            showToast('AUDIO ENVIADO','success');
-            if(window.__crm_refresh)window.__crm_refresh();
-          }catch(err){
-            console.error(err);showToast('ERROR: '+err.message,'error',4000);
-          }
-          setSending(false);
-        };
-        mr.start();
-        mediaRef.current=mr;
-        setRecording(true);
-      }catch(e){
-        showToast('ERROR: Permite acceso al microfono','error',4000);
-      }
+  React.useEffect(function(){
+    return function(){streamRef.current&&streamRef.current.getTracks().forEach(function(t){t.stop();});};
+  },[]);
+
+  async function uploadToStorage(blob){
+    var fileName='audio/'+Date.now()+'-'+phone+'.ogg';
+    var up=await sb.storage.from(STORAGE_BUCKET).upload(fileName,blob,{contentType:'audio/ogg',upsert:false});
+    if(up.error)throw new Error('Storage: '+up.error.message);
+    var pub=sb.storage.from(STORAGE_BUCKET).getPublicUrl(fileName);
+    if(!pub.data||!pub.data.publicUrl)throw new Error('Storage: no se pudo obtener la URL pública');
+    return pub.data.publicUrl;
+  }
+
+  async function sendViaWhatsApp(blob){
+    var fd=new FormData();
+    fd.append('file',blob,'audio.ogg');
+    var upR=await fetch(API_URL+'/wa/upload',{method:'POST',body:fd});
+    if(!upR.ok){var e=await upR.json().catch(function(){return{};});throw new Error('WhatsApp Media: '+(e&&e.error&&e.error.message||upR.status));}
+    var upD=await upR.json();
+    var sendR=await fetch(API_URL+'/wa/media',{
+      method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({to:phone,type:'audio',media_id:upD.id})
+    });
+    if(!sendR.ok){var e2=await sendR.json().catch(function(){return{};});throw new Error('WhatsApp Messages: '+(e2&&e2.error&&e2.error.message||sendR.status));}
+  }
+
+  async function notifyN8n(publicUrl){
+    if(!n8nWebhookUrl)return;
+    try{
+      await fetch(n8nWebhookUrl,{
+        method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({event:'audio_sent',phone:phone,audio_url:publicUrl,timestamp:new Date().toISOString()})
+      });
+    }catch(e){console.warn('[AudioRecorder] n8n webhook error:',e.message);}
+  }
+
+  async function saveToDb(publicUrl){
+    var ins=await sb.from('conversaciones').insert({phone:phone,rol:'humano',mensaje:'[AUDIO]',media_url:publicUrl,media_type:'audio/ogg',leido:true});
+    if(ins.error)throw new Error('Supabase: '+ins.error.message);
+  }
+
+  async function processAudio(blob){
+    try{
+      setErrorMsg(null);
+      setStep('uploading');
+      var publicUrl=await uploadToStorage(blob);
+      setStep('sending_wa');
+      await sendViaWhatsApp(blob);
+      setStep('notifying');
+      await notifyN8n(publicUrl);
+      setStep('saving');
+      await saveToDb(publicUrl);
+      setStep('idle');
+      showToast('AUDIO ENVIADO','success');
+      if(onSent)onSent();else if(window.__crm_refresh)window.__crm_refresh();
+    }catch(err){
+      console.error('[AudioRecorder]',err);
+      setStep('error');setErrorMsg(err.message);
+      showToast('ERROR: '+err.message,'error',6000);
     }
   }
 
-  var disabled=mode!=='humano'||sending;
-  var bg=recording?'var(--red-bg)':sending?'var(--bg3)':'var(--green-bg)';
-  var color=recording?'var(--red)':sending?'var(--text3)':'var(--green)';
-  var border=recording?'var(--red)':sending?'var(--border2)':'var(--green)';
-  var icon=recording?'⏹':'🎤';
+  async function toggleRecord(){
+    if(mode!=='humano')return;
+    if(step==='error'){setStep('idle');setErrorMsg(null);return;}
+    if(step==='recording'){mediaRef.current&&mediaRef.current.stop();return;}
+    if(step!=='idle')return;
+    try{
+      var stream=await navigator.mediaDevices.getUserMedia({audio:true});
+      streamRef.current=stream;
+      var mr=new MediaRecorder(stream);
+      chunksRef.current=[];
+      mr.ondataavailable=function(e){if(e.data.size>0)chunksRef.current.push(e.data);};
+      mr.onstop=function(){
+        stream.getTracks().forEach(function(t){t.stop();});
+        streamRef.current=null;
+        var blob=new Blob(chunksRef.current,{type:'audio/ogg; codecs=opus'});
+        processAudio(blob);
+      };
+      mr.start();mediaRef.current=mr;setStep('recording');
+    }catch(e){showToast('ERROR: Permite acceso al micrófono','error',4000);}
+  }
 
-  return React.createElement('button',{
-    onClick:toggleRecord,
-    disabled:disabled,
-    title:recording?'Detener grabacion':'Grabar audio',
-    style:{
-      background:bg,color:color,border:'2px solid '+border,
-      borderRadius:4,boxShadow:'2px 2px 0 '+border,
-      width:40,height:40,cursor:disabled?'not-allowed':'pointer',fontSize:17,flexShrink:0,
-      transition:'all .2s',display:'flex',alignItems:'center',justifyContent:'center',
-      opacity:disabled&&!recording?0.35:1,
-      animation:recording?'pulse 1s infinite':''
-    }
-  },sending?'⏳':icon);
+  var isRecording=step==='recording';
+  var isBusy=step==='uploading'||step==='sending_wa'||step==='notifying'||step==='saving';
+  var isError=step==='error';
+  var isDisabled=mode!=='humano'||isBusy;
+  var bg=isRecording?'var(--red-bg)':isError?'var(--red-bg)':isBusy?'var(--bg3)':'var(--green-bg)';
+  var color=isRecording?'var(--red)':isError?'var(--red)':isBusy?'var(--text3)':'var(--green)';
+  var border=isRecording?'var(--red)':isError?'var(--red)':isBusy?'var(--border2)':'var(--green)';
+  var currentStep=AUDIO_STEPS[step]||AUDIO_STEPS.idle;
+
+  return(
+    <button onClick={toggleRecord} disabled={isDisabled}
+      title={errorMsg||currentStep.label} aria-label={currentStep.label}
+      style={{background:bg,color:color,border:'2px solid '+border,borderRadius:4,boxShadow:'2px 2px 0 '+border,
+        width:40,height:40,cursor:isDisabled?'not-allowed':'pointer',fontSize:17,flexShrink:0,
+        transition:'all .2s',display:'flex',alignItems:'center',justifyContent:'center',
+        opacity:isDisabled&&!isRecording?0.35:1,animation:isRecording?'pulse 1s infinite':''}}>
+      {currentStep.icon}
+    </button>
+  );
 }
 
 function InboxView({isMobile,showSidebar,setShowSidebar}){
@@ -481,9 +525,9 @@ function InboxView({isMobile,showSidebar,setShowSidebar}){
     var texto=draft.trim();setDraft('');
     await sb.from('conversaciones').insert({phone:activePhone,rol:'humano',mensaje:texto,leido:true});
     try{
-      await fetch('https://graph.facebook.com/v19.0/'+WA_PHONE_ID+'/messages',{
-        method:'POST',headers:{Authorization:'Bearer '+WA_TOKEN,'Content-Type':'application/json'},
-        body:JSON.stringify({messaging_product:'whatsapp',to:activePhone,type:'text',text:{body:texto}})
+      await fetch(API_URL+'/wa/send',{
+        method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({to:activePhone,text:texto})
       });
     }catch(e){console.error(e);}
     await cargarMensajes(activePhone);
@@ -656,7 +700,7 @@ function InboxView({isMobile,showSidebar,setShowSidebar}){
             <div style={{padding:'10px 12px',paddingBottom:'calc(10px + var(--safe-b))',background:'var(--card)',borderTop:'2px solid var(--text)',boxShadow:'0 -3px 0 var(--border)',flexShrink:0}}>
               <div style={{display:'flex',gap:8,alignItems:'flex-end'}}>
                 <button className="btn-media" onClick={()=>abrirModal(activePhone,activeMode)} disabled={activeMode!=='humano'} title="Enviar foto o video">&#128206;</button>
-                <AudioRecorder phone={activePhone} mode={activeMode}/>
+                <AudioRecorder phone={activePhone} mode={activeMode} onSent={cargarClientes}/>
                 <textarea value={draft} onChange={e=>setDraft(e.target.value)}
                   onKeyDown={e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();enviar();}}}
                   onInput={e=>{e.target.style.height='auto';e.target.style.height=Math.min(e.target.scrollHeight,100)+'px';}}
@@ -822,20 +866,97 @@ function PipelineView(){
   );
 }
 
+function LoginScreen(){
+  var [email,setEmail]=useState('');
+  var [pw,setPw]=useState('');
+  var [loading,setLoading]=useState(false);
+  var [err,setErr]=useState('');
+
+  async function ingresar(e){
+    e.preventDefault();
+    if(!email.trim()||!pw)return;
+    setLoading(true);setErr('');
+    var r=await sb.auth.signInWithPassword({email:email.trim(),password:pw});
+    if(r.error){setErr(r.error.message);setLoading(false);}
+    // éxito: onAuthStateChange en App actualiza session automáticamente
+  }
+
+  return(
+    <div style={{position:'fixed',inset:0,background:'var(--bg)',display:'flex',flexDirection:'column',
+      alignItems:'center',justifyContent:'center',padding:16,
+      backgroundImage:'radial-gradient(circle at 20px 20px,rgba(212,82,42,.04) 1px,transparent 1px),radial-gradient(circle at 60px 60px,rgba(91,63,160,.03) 1px,transparent 1px)',
+      backgroundSize:'80px 80px'}}>
+      <div style={{width:'100%',maxWidth:340}}>
+        <div style={{textAlign:'center',marginBottom:24}}>
+          <div style={{display:'flex',justifyContent:'center',marginBottom:14}}><PixelLogo/></div>
+          <div className="pixel" style={{fontSize:11,color:'var(--accent)',letterSpacing:2}}>RETROGAMING</div>
+          <div className="mono" style={{fontSize:12,color:'var(--text3)',marginTop:6}}>CRM · Panel de administración</div>
+        </div>
+        <form onSubmit={ingresar}
+          style={{background:'var(--card)',border:'3px solid var(--text)',borderRadius:8,
+            boxShadow:'4px 4px 0 var(--text)',padding:'24px 22px',
+            display:'flex',flexDirection:'column',gap:14}}>
+          <div>
+            <div className="pixel" style={{fontSize:7,color:'var(--text2)',marginBottom:7,letterSpacing:1}}>EMAIL</div>
+            <input type="email" value={email} onChange={e=>setEmail(e.target.value)}
+              required autoFocus autoComplete="email"
+              style={{width:'100%',padding:'10px 12px',fontFamily:'"JetBrains Mono",monospace',fontSize:14,
+                border:'2px solid var(--border2)',borderRadius:4,background:'var(--bg2)',
+                color:'var(--text)',outline:'none',WebkitAppearance:'none'}}
+              onFocus={e=>e.target.style.borderColor='var(--accent)'}
+              onBlur={e=>e.target.style.borderColor='var(--border2)'}/>
+          </div>
+          <div>
+            <div className="pixel" style={{fontSize:7,color:'var(--text2)',marginBottom:7,letterSpacing:1}}>CONTRASEÑA</div>
+            <input type="password" value={pw} onChange={e=>setPw(e.target.value)}
+              required autoComplete="current-password"
+              style={{width:'100%',padding:'10px 12px',fontFamily:'"JetBrains Mono",monospace',fontSize:14,
+                border:'2px solid var(--border2)',borderRadius:4,background:'var(--bg2)',
+                color:'var(--text)',outline:'none',WebkitAppearance:'none'}}
+              onFocus={e=>e.target.style.borderColor='var(--accent)'}
+              onBlur={e=>e.target.style.borderColor='var(--border2)'}/>
+          </div>
+          {err&&(
+            <div style={{background:'var(--red-bg)',border:'1.5px solid var(--red)',borderRadius:4,
+              padding:'8px 12px',fontFamily:'"JetBrains Mono",monospace',fontSize:12,color:'var(--red)'}}>
+              {err}
+            </div>
+          )}
+          <button type="submit" className="btn btn-primary"
+            disabled={loading||!email.trim()||!pw}
+            style={{width:'100%',justifyContent:'center',fontSize:9,padding:'12px 16px',marginTop:2}}>
+            {loading?'VERIFICANDO...':'INGRESAR'}
+          </button>
+        </form>
+      </div>
+    </div>
+  );
+}
+
 function App(){
   var [tab,setTab]=useState('inbox');
   var [loading,setLoading]=useState(true);
+  var [session,setSession]=useState(null);
   var [showSidebar,setShowSidebar]=useState(true);
   var isMobile=window.innerWidth<=640;
-  useEffect(function(){setTimeout(function(){setLoading(false);},1400);},[]);
+
+  useEffect(function(){
+    sb.auth.getSession().then(function(r){setSession(r.data.session);setLoading(false);});
+    var sub=sb.auth.onAuthStateChange(function(_e,s){setSession(s);});
+    return function(){sub.data.subscription.unsubscribe();};
+  },[]);
+
+  async function salir(){await sb.auth.signOut();}
 
   if(loading)return(
     <div className="loading-overlay">
       <div className="pixel" style={{fontSize:11,color:'var(--accent)',letterSpacing:2,textAlign:'center'}}>RETROGAMING CRM</div>
-      <div className="mono" style={{fontSize:12,color:'var(--text2)'}}>Cargando...</div>
+      <div className="mono" style={{fontSize:12,color:'var(--text2)'}}>Verificando sesión...</div>
       <div className="loading-bar"><div className="loading-fill"/></div>
     </div>
   );
+
+  if(!session)return <LoginScreen/>;
 
   return(
     <>
@@ -856,8 +977,12 @@ function App(){
             </button>
           );})}
         </div>
-        <div className="mono" style={{fontSize:11,color:'var(--text2)',display:'flex',alignItems:'center',gap:6,flexShrink:0}}>
-          <span className="live-dot"/><span>EN VIVO</span>
+        <div style={{display:'flex',alignItems:'center',gap:10,flexShrink:0}}>
+          <div className="mono" style={{fontSize:11,color:'var(--text2)',display:'flex',alignItems:'center',gap:6}}>
+            <span className="live-dot"/><span>EN VIVO</span>
+          </div>
+          <button className="btn btn-ghost" onClick={salir} title="Cerrar sesión"
+            style={{fontSize:7,padding:'6px 10px',letterSpacing:1}}>SALIR</button>
         </div>
       </div>
       <div style={{flex:1,overflow:'hidden',display:'flex',position:'relative'}}>
