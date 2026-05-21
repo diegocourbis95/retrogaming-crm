@@ -168,9 +168,19 @@ function procesarArchivo(file){
   if(file.size>16777216){showToast('MAX 16MB','error');return;}
   archivoActual=file;
   var isImg=file.type.startsWith('image/');
-  document.getElementById('previewThumb').innerHTML=isImg
-    ?'<img src="'+URL.createObjectURL(file)+'" style="width:50px;height:50px;object-fit:cover;border-radius:3px;border:2px solid var(--border2)">'
-    :'<div style="width:50px;height:50px;background:var(--bg3);border-radius:3px;border:2px solid var(--border2);display:flex;align-items:center;justify-content:center;font-size:14px">VIDEO</div>';
+  var thumb=document.getElementById('previewThumb');
+  thumb.innerHTML='';
+  if(isImg){
+    var imgEl=document.createElement('img');
+    imgEl.src=URL.createObjectURL(file);
+    imgEl.style.cssText='width:50px;height:50px;object-fit:cover;border-radius:3px;border:2px solid var(--border2)';
+    thumb.appendChild(imgEl);
+  }else{
+    var vidEl=document.createElement('div');
+    vidEl.style.cssText='width:50px;height:50px;background:var(--bg3);border-radius:3px;border:2px solid var(--border2);display:flex;align-items:center;justify-content:center;font-size:14px';
+    vidEl.textContent='VIDEO';
+    thumb.appendChild(vidEl);
+  }
   document.getElementById('previewName').textContent=file.name;
   var sz=file.size<1048576?(file.size/1024).toFixed(1)+' KB':(file.size/1048576).toFixed(1)+' MB';
   document.getElementById('previewSize').textContent=sz;
