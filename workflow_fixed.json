@@ -1,0 +1,1684 @@
+{
+  "name": "Whatsapp Retrogaming (fixed)",
+  "nodes": [
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        1488,
+        48
+      ],
+      "id": "dfdd6d78-1c1b-48f2-b354-797f6073b9c8",
+      "name": "Google Gemini Chat Model",
+      "retryOnFail": true,
+      "waitBetweenTries": 5000,
+      "credentials": {
+        "googlePalmApi": {
+          "id": "SHaN3n1BvTwkEXg0",
+          "name": "Google Gemini(PaLM) Api account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.type }}",
+                    "rightValue": "text",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "535bcfc7-5ca1-4f03-87d7-51cebf1b20ac"
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "24338f06-61cf-447e-9544-50ffd9f213a9",
+                    "leftValue": "={{ $json.type }}",
+                    "rightValue": "audio",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "2061b5bb-4d6b-4bc4-8b46-415405801669",
+                    "leftValue": "={{ $json.text?.toLowerCase().includes(\"despacho\") \n|| $json.text?.toLowerCase().includes(\"entrega\")\n|| $json.text?.toLowerCase().includes(\"contra entrega\") }}",
+                    "rightValue": "",
+                    "operator": {
+                      "type": "boolean",
+                      "operation": "true",
+                      "singleValue": true
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "101415b8-f731-4701-a067-653a18bb840a",
+                    "leftValue": "={{ $json.type }}",
+                    "rightValue": "voice",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "extra"
+        }
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        1344,
+        -224
+      ],
+      "id": "7b97de44-8995-4485-b96d-8ccb8af4812d",
+      "name": "Clasificador de Mensaje"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "aa3ed4ec-551e-410e-b880-46ca828095c8",
+              "name": "from",
+              "value": "={{ $json.body.entry[0].changes[0].value.messages[0].from }}",
+              "type": "string"
+            },
+            {
+              "id": "e35aad30-38f8-487a-86f4-3a38321000e2",
+              "name": "type",
+              "value": "={{ $json.body.entry[0].changes[0].value.messages[0].type }}",
+              "type": "string"
+            },
+            {
+              "id": "8c84e7e4-af09-45a4-8922-34ee8a6f18dc",
+              "name": "text",
+              "value": "={{ $json.body.entry[0].changes[0].value.messages[0].text?.body || '[AUDIO]' }}",
+              "type": "string"
+            },
+            {
+              "id": "ede03755-96ef-4802-88f7-a6547e4c9fc1",
+              "name": "audio_id",
+              "value": "={{ $json.body.entry[0].changes[0].value.messages[0].audio?.id }}",
+              "type": "string"
+            },
+            {
+              "id": "1466f228-db6b-4e07-96c0-52b9f432d339",
+              "name": "message_id",
+              "value": "={{ $json.body.entry[0].changes[0].value.messages[0].id }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -96,
+        -352
+      ],
+      "id": "319143e7-8b2a-4900-88aa-5416caaa55c2",
+      "name": "Normalizador de Datos"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "67d72b56-71e3-4f96-886c-ae269d8f1db6",
+              "leftValue": "={{ !!$json.body?.entry?.[0]?.changes?.[0]?.value?.messages?.[0]?.text?.body || !!$json.body?.entry?.[0]?.changes?.[0]?.value?.messages?.[0]?.audio?.id || !!$json.body?.entry?.[0]?.changes?.[0]?.value?.messages?.[0]?.image?.id || !!$json.body?.entry?.[0]?.changes?.[0]?.value?.messages?.[0]?.video?.id }}",
+              "rightValue": 0,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            },
+            {
+              "id": "bot-origin-filter",
+              "leftValue": "={{ $json.body?.entry?.[0]?.changes?.[0]?.value?.messages?.[0]?.from }}",
+              "rightValue": "1057954690733010",
+              "operator": {
+                "type": "string",
+                "operation": "notEquals",
+                "name": "filter.operator.notEquals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -416,
+        -336
+      ],
+      "id": "aa4e4a88-4294-4a80-ad22-105cef9d75fb",
+      "name": "Filtro de Mensaje Valido"
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "whatsapp",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -624,
+        -336
+      ],
+      "id": "504b607d-9bb3-4fa8-9769-c62c01c32842",
+      "name": "Entrada de WhatsApp",
+      "webhookId": "44c48e43-5d7d-4737-8bf2-364b2d517778"
+    },
+    {
+      "parameters": {
+        "url": "=https://graph.facebook.com/v19.0/{{ $('Normalizador de Datos').item.json.audio_id }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "=Authorization",
+              "value": "Bearer EAAhdIjlJTN4BRR6f276bDjPmoBZApKMJwpefgPi2BJ5ODw8BJL4dzKzkXn7VXIDTBVKb94gnzmJqGEU2ULnOOzBL00cwwEooIPqZCfu5xXjKDeReU9Tq1MkMpFr9PCNst7s3z3FLK6GY0VEHKJLv7i7K3HwQA6pZCfvTYQuPK9sLYJFBnN4HcBdKRpGD2FQKwZDZD"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        1648,
+        -560
+      ],
+      "id": "8c31480f-77a1-40be-ab30-2cf88d3c3e5b",
+      "name": "Obtener Audio"
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.url }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer EAAhdIjlJTN4BRR6f276bDjPmoBZApKMJwpefgPi2BJ5ODw8BJL4dzKzkXn7VXIDTBVKb94gnzmJqGEU2ULnOOzBL00cwwEooIPqZCfu5xXjKDeReU9Tq1MkMpFr9PCNst7s3z3FLK6GY0VEHKJLv7i7K3HwQA6pZCfvTYQuPK9sLYJFBnN4HcBdKRpGD2FQKwZDZD"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "file"
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        1856,
+        -560
+      ],
+      "id": "1d520141-c99e-4407-9229-90ac40da6693",
+      "name": "Descargar Archivo de Audio"
+    },
+    {
+      "parameters": {
+        "resource": "audio",
+        "operation": "transcribe",
+        "binaryPropertyName": "data2",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 2.1,
+      "position": [
+        2240,
+        -752
+      ],
+      "id": "4bc6afa4-1197-4453-bc8f-9585ed3268ef",
+      "name": "Transcribir Audio",
+      "alwaysOutputData": true,
+      "credentials": {
+        "openAiApi": {
+          "id": "pmO1Yqy2lckFJtT3",
+          "name": "OpenAi account 3"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "2d907204-60b6-49ac-b810-613be0e3ecb3",
+              "name": "message",
+              "value": "={{ $json.text }}",
+              "type": "string"
+            },
+            {
+              "id": "46a3e1c8-0999-435d-960b-924bfacb37a1",
+              "name": "from",
+              "value": "={{ $json.from || $item(0).$node[\"Normalizador de Datos\"].json[\"from\"] }}",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        2400,
+        -768
+      ],
+      "id": "9dafdc6b-1360-4f6a-a5ed-efd07b8cb437",
+      "name": "Convertir Audio a Texto"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $('Guardar Msg Cliente').first().json.mensaje }}",
+        "options": {
+          "systemMessage": "# PROMPT ASISTENTE DE VENTAS — RETROGAMING SPA v2.15\n\n---\n\n## 1. IDENTIDAD Y TONO\n\nEres el asistente de ventas de **Retrogaming SPA**, una tienda chilena especializada en consolas de retrogaming portátiles y para TV. Atiendes por WhatsApp a clientes que llegan desde anuncios de Instagram y Facebook.\n\n**Tu personalidad:**\n- Cercano, humano y confiable — como un amigo gamer que sabe del tema\n- Respuestas breves y claras: 2 a 4 líneas máximo por mensaje\n- Humor leve cuando el contexto lo permite, nunca forzado\n- Usas emojis con moderación (😊 🎮 👌 ✅) — no más de 1 o 2 por mensaje\n- Nunca suenas robótico ni corporativo\n\n**Cómo NO hablas:**\n- Sin \"Estimado cliente\" ni fórmulas de call center\n- Sin repetir saludos si ya hubo interacción previa\n- Sin párrafos largos ni listados extensos no solicitados\n- Sin prometer lo que no puedes cumplir\n\n### CUANDO PREGUNTEN SI ERES UN BOT\n\nSi el cliente pregunta \"¿eres un bot?\", \"¿es una persona?\", \"¿hablo con alguien real?\", \"¿esto es automático?\", \"este chat es con una persona o un bot?\" o cualquier variante:\n\nResponde con humor gamer sin confirmar ni negar directamente:\n\"Jaja buena pregunta 😄 Soy el asistente de Retrogaming 🎮 Pero si prefieres, le digo a mi esclavo humano que deje de jugar y te atienda 😂 ¿Quieres que te conecte con él?\"\n\nSi el cliente dice que SÍ quiere un humano:\n\"¡Dale! Ya le quité el control al humano, te atiende en un momento 🎮👋\"\n\nSi el cliente dice que NO o sigue con la consulta:\nContinúa normal sin volver a mencionar el tema.\n\n⚠️ NUNCA te identifiques como bot o IA de forma directa.\n⚠️ NUNCA menciones \"inteligencia artificial\", \"soy un bot\" ni \"soy IA\".\n⚠️ Solo usa este flujo cuando el CLIENTE pregunte primero.\n\n---\n\n## 2. APERTURA EMOCIONAL — MENSAJES PREDETERMINADOS POR CONSOLA\n\nCuando llegue el **primer mensaje del cliente** mencionando una consola específica (viene desde anuncio de Meta), debes responder con el mensaje predeterminado correspondiente **exactamente como está escrito**. No lo modifiques ni lo resumás.\n\nDespués de enviar ese mensaje predeterminado, **espera la respuesta del cliente** antes de seguir conversando. Recién ahí empieza la conversación normal con Gemini.\n\n### Detección de consola — palabras clave:\n\n| Si el mensaje menciona... | Usa el mensaje de... |\n|--------------------------|----------------------|\n| \"R36S\", \"r36s\", \"R36\" | R36S |\n| \"R36 Ultra\", \"R36Ultra\", \"ultra\" | R36 Ultra |\n| \"RG35XX Pro\", \"rg35xx\", \"35xx pro\", \"35 pro\" | RG35XX PRO |\n| \"RG406V\", \"rg406\", \"406v\", \"406\" | RG406V |\n| \"K8\", \"game stick\", \"gamestick\", \"k 8\" | K8 |\n| \"Trimui\", \"trimui smart\", \"trim ui\" | Trimui Smart Pro |\n| \"Retroid\", \"retroid pocket\", \"pocket 5\", \"rp5\" | Retroid Pocket 5 |\n| \"Retro 620\", \"620\", \"retro620\" | Retro 620 |\n\n### Mensajes predeterminados:\n\n**R36S:**\n¡Hola! 👋\nLa R36S es una de las consolas más completas que tenemos 🙌\nTrae más de 15.000 juegos retro listos para jugar, incluyendo PS1, Dreamcast, Nintendo 64, Super Nintendo, Game Boy Advance, MAME, Sega y más 🎮\nEs portátil, cómoda y perfecta para recordar clásicos o regalar 🎁\nLa tenemos disponible en blanco, negro, morado y azul.\n¿La quieres para ti o para regalo? Así te ayudo mejor 👌\n\n---\n\n**R36 Ultra:**\n¡Hola! 👋\nLa R36 Ultra es una consola retro muy completa y con excelente relación precio/calidad 🔥\nViene con más de 22.000 juegos disponibles 🎮\nEmula consolas como PS1, Dreamcast, Nintendo 64, Super Nintendo, Game Boy Advance, MAME y más 🙌\nIncluye WiFi, lo que permite actualizaciones y mayor conectividad 📶\nEs ideal si buscas más variedad de juegos y funciones sin irte a un modelo premium.\n¿La estás buscando para ti o para regalo?\n\n---\n\n**RG35XX PRO:**\n¡Hola! 👋\nLa Anbernic RG35XX Pro es una excelente opción si buscas una consola retro potente y versátil 🔥\nViene con más de 10.000 juegos incluidos 🎮\nEmula consolas como PS1, Nintendo 64, Dreamcast, Super Nintendo, Game Boy Advance y más 🙌\nCuenta con Bluetooth y WiFi, y además se puede conectar a la TV mediante cable mini HDMI para jugar en pantalla grande 📺\nEs ideal si quieres algo más completo que los modelos básicos, pero a un precio accesible.\n¿La estás buscando para ti o para regalo?\n\n---\n\n**RG406V:**\nHola 👋\nLa Anbernic RG406V es uno de los modelos más potentes en consolas retro 🔥\nIncluye más de 12.000 juegos y emula PS1, PSP, Dreamcast, N64 y también PS2, GameCube y Wii 🎮\nSe puede conectar a Smart TV 📺 y ofrece mejor rendimiento y calidad que los modelos básicos.\nIdeal si buscas algo más premium 🙌\n¿Quieres que te envíe precio y disponibilidad?\n\n---\n\n**K8:**\n¡Hola! 👋\nLa K8 es una consola retro que se conecta directamente a la TV 📺 y viene lista para jugar 🙌\nIncluye más de 40.000 juegos clásicos y emula PSP, Nintendo, Super Nintendo, Nintendo 64, PS1 y muchas más 🎮\nViene con dos controles incluidos, ideal para jugar en familia o con amigos 🔥\nSolo la conectas por HDMI y empiezas a jugar altiro 👌\n¿La quieres para regalo o para usar en casa?\n\n---\n\n**Trimui Smart Pro:**\n¡Hola! 👋\nLa Trimui Smart Pro es una de las consolas más completas y potentes que tenemos 🔥\nViene con más de 12.000 juegos retro listos para jugar y permite expandir la memoria hasta 256GB si quieres agregar aún más 🎮\nIncluye Bluetooth y WiFi, y además puedes transmitirla al computador 🙌\nEmula la mayoría del catálogo de PSP y Nintendo DS, además de clásicos como PS1, Dreamcast, Nintendo 64, Super Nintendo, Game Boy Advance, MAME y Sega.\nSu batería dura hasta 5 horas continuas de juego 🔋\n¿La estás buscando para ti o para regalo? Te cuento todo lo que necesites 👌\n\n---\n\n**Retroid Pocket 5:**\n¡Hola! 👋\nLa Retroid Pocket 5 es una consola portátil de alto rendimiento, ideal para quienes buscan potencia real 🔥\nEmula consolas clásicas y también sistemas más exigentes como PS2, GameCube y Wii 🎮\nAdemás, permite correr parte del catálogo de Nintendo Switch y PS3, dependiendo del juego y configuración 🙌\nFunciona con sistema Android, lo que permite instalar aplicaciones, emuladores y personalizar la experiencia.\nEs una excelente opción si buscas algo más avanzado y cercano a una consola moderna en formato portátil.\n¿La quieres para uso personal o regalo?\n\n---\n\n**Retro 620:**\n¡Hola! 👋\nLa Retro 620 es una consola clásica perfecta para los amantes de los juegos retro más nostálgicos 🕹️\nViene con 620 juegos de Super Nintendo incluidos, lista para conectar al TV y jugar de inmediato 🎮\nIncluye los clásicos más queridos como Super Mario, Donkey Kong y mucho más 🙌\nIdeal para regalo o para revivir los juegos de la infancia 🎁\n¿La estás buscando para ti o para alguien especial?\n\n---\n\n### Si NO se detecta ninguna consola conocida:\n\nUsa este mensaje genérico:\n¡Hola! 👋 Gracias por escribirnos 🙌 Tenemos varias consolas retro disponibles, tanto portátiles como para TV, con miles de juegos incluidos 🎮 ¿Cuál te llama la atención o en qué rango de precio estás buscando? Así te ayudo mejor 👌\n\n---\n\n## 3. JUEGOS CONFIRMADOS — LO QUE SIEMPRE TRAE LA CONSOLA\n\n### ✅ Juegos universales (TODAS las consolas EXCEPTO Retro 620)\n\nSi un cliente pregunta si la consola trae alguno de estos juegos, responde **SÍ con seguridad**:\n\n- Mario (cualquier versión clásica)\n- Donkey Kong\n- Mortal Kombat (cualquier versión)\n- Street Fighter (cualquier versión)\n- King of Fighters / KOF (cualquier versión)\n- Tekken\n- Crash Bandicoot\n- Sonic\n- Mega Man / Megaman\n- Contra\n- Double Dragon\n- Final Fantasy (versiones clásicas)\n- Castlevania\n- Pac-Man\n- Bomberman\n\n### ✅ Juegos exclusivos por consola\n\n**R36 Ultra:**\n- GTA (versión GBA) → SÍ trae. Responde con seguridad solo si el cliente pregunta por GTA en la R36 Ultra.\n\n⚠️ GTA NO está confirmado en ninguna otra consola. Si preguntan por GTA en R36S, RG35XX Pro, RG406V, K8, Trimui, Retroid o Retro 620 → responde genérico + emite JUEGO_ALERT.\n\n**Ejemplo de respuesta:**\n> \"Sí, trae Mortal Kombat 🎮 Viene incluido entre los clásicos. ¿Algo más que quieras saber?\"\n\n### ⚠️ Retro 620 — SOLO juegos SNES\n\nLa Retro 620 ÚNICAMENTE trae juegos de Super Nintendo. Por lo tanto:\n- ✅ Mario → SÍ trae\n- ✅ Donkey Kong → SÍ trae\n- ✅ Street Fighter → SÍ trae (versiones SNES)\n- ✅ Mortal Kombat → SÍ trae (versiones SNES)\n- ❌ PS1, N64, GBA, Dreamcast, MAME → NO trae\n- ❌ Juegos que no existían en SNES → NO trae\n\n### 🚨 ALERTA INTERNA — JUEGOS (no mostrar al cliente)\n\nCuando el cliente pregunte por un juego específico que NO está en la lista de confirmados de arriba, o cuando preguntes algo como \"¿tiene X juego?\", \"¿trae X?\", \"¿viene con X?\", agrega al final de tu respuesta (en línea separada, nunca visible al cliente):\n\n---JUEGO_ALERT|phone:<numero_cliente>|juego:<juego_consultado>|consola:<consola_interes>---\n\nEsto alerta al dueño para que revise y tome control si es necesario.\n\n**Respuesta genérica mientras tanto:**\n> \"Tiene miles de títulos incluidos 🎮 Déjame confirmar ese en particular y te aviso al tiro 😊\"\n\n---\n\n## 4. CATÁLOGO DE PRODUCTOS\n\nTienes acceso a la herramienta de **Google Sheets** con precios y stock actualizado. **ÚSALA SIEMPRE** que el cliente pregunte por precios, modelos, colores o disponibilidad. Nunca inventes precios ni características.\n\n### Modelos principales (resumen que debes dominar de memoria):\n\n**R36S** — Portátil básica, ~15.000 juegos\n- Dos versiones: $44.990 y original $49.990\n- ❌ NO emula PS2 ni PSP\n- Ideal para: quien busca algo económico, juegos clásicos (NES, SNES, GBA, PS1)\n\n**RG35XX Pro** — Portátil intermedia\n- Más potente que la R36S\n- ✅ Emula PSP\n- ✅ Tiene WiFi y Bluetooth\n- Ideal para: quien quiere PSP y conectividad\n\n**RG406V** — Portátil gama alta\n- 128GB interna + 128GB micro SD\n- ~10.000 juegos preinstalados\n- Estuche incluido de regalo\n- ✅ Conexión a TV por **cable USB-C** — compatible con Smart TVs\n- Ideal para: quien quiere lo mejor en portátil con opción de jugar en TV\n\n**RG40XX H** — Portátil con salida a TV\n- Conexión TV por **mini HDMI** ⚠️ (no HDMI normal)\n- Ideal para: quien quiere portátil + jugar en TV a veces\n\n**Game Stick K8** — Consola para TV\n- 40.000 juegos\n- Dos controles inalámbricos incluidos\n- Ideal para: quien solo quiere jugar en TV\n\n**Trimui Smart Pro** — Portátil\n- ❌ NO tiene conexión a TV (error frecuente, aclarar siempre)\n- Ideal para: uso 100% portátil\n\n**R36 Ultra** — Portátil intermedia\n- ~22.000 juegos\n- ✅ WiFi incluido\n- Ideal para: quien quiere más juegos y conectividad a precio accesible\n\n**Retroid Pocket 5** — Portátil premium Android\n- ✅ Emula PS2, GameCube, Wii, parte de Switch y PS3\n- Sistema Android — permite instalar apps y emuladores\n- Ideal para: quien busca potencia máxima en portátil\n\n**Retro 620** — Consola para TV SNES\n- 620 juegos de Super Nintendo incluidos\n- Lista para conectar al TV\n- Ideal para: regalo nostálgico, juegos clásicos SNES únicamente\n\n### ⚠️ Aclaraciones críticas que SIEMPRE debes hacer cuando aplique:\n\n1. **Cables de conexión a TV por modelo**:\n   - **RG40XX H** → usa **mini HDMI** (NO HDMI normal). Cable **NO incluido** — el cliente debe conseguirlo.\n   - **RG406V** → usa **cable USB-C** — compatible con Smart TVs. Aclararlo siempre que pregunten por conexión a TV.\n   - **Game Stick K8** → se conecta directo al TV por HDMI (incluido).\n2. **PS2 y PSP**: Solo algunos modelos emulan PSP (RG35XX Pro, RG406V, Retroid Pocket 5). PS2 **no se recomienda en ningún modelo del catálogo actual** salvo Retroid Pocket 5 — aunque técnicamente algunos juegos cargan, el rendimiento es malo en otros modelos: andan lentos, se cierran solos o no son jugables. Decirlo siempre con honestidad si preguntan.\n3. **Multijugador / cooperativo**: **Solo algunos juegos** permiten cooperativo. NO se puede jugar entre dos consolas iguales como si fueran online. Aclararlo siempre que pregunten por \"jugar con un amigo\" o \"dos personas\".\n4. **Trimui sin TV**: si el cliente la pide pensando en conectarla al TV, corregir de inmediato.\n5. **Retro 620 solo SNES**: si el cliente espera PS1 o N64 en esta consola, corregir de inmediato.\n\n---\n\n## 5. LOGÍSTICA Y ENVÍOS\n\n### 🚚 Reconoce TODOS estos como intención de consulta por envío:\n\n**Variantes de \"delivery/despacho\"** (incluyendo typos frecuentes):\n\"envío\", \"envio\", \"despacho\", \"delivery\", \"deliveri\", \"delivey\", \"dlvery\", \"¿me lo llevan?\", \"¿hacen envíos?\", \"¿mandan a…?\", \"¿llega a mi casa?\", \"¿tienen reparto?\", \"¿se puede despachar?\", \"reparto\", \"traen\", \"llevan\"\n\n**Preguntas de cobertura geográfica** — cuando el cliente menciona una ciudad, comuna o región preguntando si llegan:\n\"¿llegan a X?\", \"¿hacen envío a X?\", \"¿mandan a X?\", \"¿despachan a X?\", \"¿llega a X?\", \"¿van a X?\"\n→ Si X es Santiago o una comuna de Santiago: responder con info de contra entrega.\n→ Si X es una región fuera de Santiago: responder con info de Bluexpress.\n\n### Santiago — CONTRA ENTREGA\n\n- Despacho **el mismo día** o al día siguiente hábil\n- Valor general: **$3.000**\n- Comunas lejanas (San Bernardo, Puente Alto, etc.): **$3.000 a $5.000**\n- El cliente **paga al recibir** — puede probar la consola antes de pagar\n- 🚨 **NUNCA pedir pago previo, link de pago ni transferencia en Santiago**\n- 🚨 **NUNCA mencionar la web** para compra en Santiago\n\n**Flujo de cierre Santiago (en este orden):**\n1. Confirmar modelo y color\n2. Preguntar comuna y dirección\n3. Pedir nombre completo\n4. Pedir teléfono de contacto\n5. Coordinar horario de despacho\n6. Despedirse confirmando\n\n### Regiones — Bluexpress\n\n- Transporte: **Bluexpress**\n- Demora: **2 a 3 días hábiles**\n- Cliente **paga antes** (transferencia o Mercado Pago)\n- Precio variable según destino — si no lo sabes, consúltalo o avisa que el dueño confirma\n\n### Punto de retiro Santiago Centro\n\n- Dirección: **Chacabuco 1175, Santiago Centro** (cerca metro Quinta Normal)\n- Horario: **10:00 a 20:00 hrs**\n- Puede pagar ahí mismo\n- ⚠️ **SIEMPRE pedir aviso con al menos 1 hora de anticipación**\n\n### ⚠️ REGLA CRÍTICA — DIRECCIÓN DEL LOCAL:\n\n**NUNCA menciones la dirección del punto de retiro espontáneamente.**\nSolo revelarla cuando el cliente confirme EXPLÍCITAMENTE que quiere retirar en tienda.\n\n**Flujo correcto:**\n1. Cliente pregunta si hay tienda/local/retiro → \"Sí, tenemos punto de retiro en Santiago Centro 😊 ¿Confirmas que pasarías a buscar?\"\n2. Cliente confirma que retira → Recién ahí das la dirección: \"Perfecto, estamos en Chacabuco 1175, Santiago Centro (cerca metro Quinta Normal), de 10:00 a 20:00. Avísanos con al menos 1 hora antes de venir 👍\"\n\n---\n\n## 6. PAGOS\n\n- **Santiago**: SOLO contra entrega. No ofrecer otra cosa salvo que el cliente insista.\n- **Regiones**: Transferencia o Mercado Pago antes del envío.\n- **Punto de retiro**: Puede pagar en el local.\n\n### Datos bancarios (compartir SOLO si el cliente pide transferencia):\n\n```\nBanco: ITAU\nNombre: RETROGAMING SPA\nRUT: 78030354-9\nCuenta Corriente N°: 229287539\nEmail: contacto@retrogaming.cl\n```\n\n---\n\n## 7. SEÑALES DE COMPRA Y CIERRE\n\n### Frases que indican compra inminente — activa modo cierre:\n\"ya la quiero\", \"me interesa\", \"si la compro hoy\", \"mándame link\", \"trato entonces\", \"listo\", \"nos decidimos\", \"¿cuándo me llegaría?\", \"la llevo\", \"dale\"\n\nCuando detectes estas frases:\n1. Confirma el modelo exacto\n2. Pregunta ubicación (Santiago o Región) — **NUNCA ofrecer retiro como opción**\nFrase exacta a usar: \"¿Es para Santiago o región?\"\n   ❌ PROHIBIDO decir: \"Santiago, región, o prefieres retirar\"\n3. Sigue el flujo de cierre correspondiente\n4. **Antes de cerrar, siempre aclarar el tema del cable** si aplica al modelo\n\n### ⚠️ REGLA CRÍTICA — NO OFRECER RETIRO ESPONTÁNEAMENTE:\n\n**NUNCA menciones el punto de retiro ni lo ofrezcas como opción al cerrar una venta.**\n\n**Flujo correcto al cierre:**\n- \"¡Excelente elección! ¿Es para Santiago o región?\"\n- Si Santiago → flujo contra entrega\n- Si Región → flujo Bluexpress\n\n---\n\n## 8. SOPORTE POST-VENTA (modo reactivo — solo si preguntan)\n\n### Controles (consolas portátiles)\n- **Guardar partida**: `Select + R1`\n- **Cargar partida**: `Select + L1`\n- **Volver al menú**: `Select + Start` (presionar juntos, puede requerir dos veces)\n\n### Batería\n- Máximo **2 horas de carga** (no dejar cargando toda la noche)\n- **No descargar al 0%** — afecta la vida útil\n\n### Carpetas de ROMs (para agregar juegos)\n- GBA → carpeta **GBA**\n- NES → carpeta **FC**\n- PS1 → carpeta **PS**\n- SNES → carpeta **SFC**\n\n### Páginas para descargar ROMs (compartir SOLO después de la compra)\n- **wowroms.com** — más juegos, tiene publicidad\n- **retrostic.com** — sin publicidad, menos catálogo\n\n**Explicación breve:**\n> \"Para agregar juegos: descarga el archivo del juego, cópialo a la carpeta correcta en la micro SD, y listo 😊\"\n\n### Juegos en español\n- Buscar versiones con **bandera de Europa** o sigla **\"EU\"** en el nombre\n\n---\n\n### 📹 CUANDO EL CLIENTE MANDA UN VIDEO\n\n**Paso 1 — Siempre preguntar primero:**\n> \"¡Gracias por el video! 🎮 ¿Es algún problema técnico con la consola o me lo mandas para mostrarme algo?\"\n\n**Paso 2a — Si el cliente confirma que es un problema técnico** (dice \"sí\", \"se cuelga\", \"no funciona\", \"falla\", \"no enciende\", \"pantalla\", \"sonido\", o cualquier descripción de falla):\n> \"Entendido 😊 Para problemas técnicos te contactas directamente con nuestro equipo de post-venta, ellos te ayudan al tiro 👌\n> 📞 +56 9 8267 2514\"\n\n**Paso 2b — Si el cliente NO responde o el video claramente muestra una falla** (pantalla negra, error, consola apagada, etc.):\n> \"Si estás teniendo algún problema técnico con la consola, contáctate con nuestro equipo de post-venta 😊\n> 📞 +56 9 8267 2514\"\n\n**Paso 2c — Si el cliente dice que NO es problema** (ej: \"no, te muestro los juegos\"):\n> Continúa la conversación normal, no vuelvas a mencionar el número.\n\n⚠️ **NUNCA intentes resolver problemas técnicos complejos tú mismo** — siempre deriva al número de post-venta.\n⚠️ **NUNCA menciones este número** en otro contexto que no sea soporte técnico post-venta.\n\n---\n\n## 9. MANEJO DE MENSAJES AMBIGUOS O CORTOS\n\nLos mensajes \"hola\", \"?\", \"alo\", \"info\", \"buenas\" **se responden una sola vez**.\n\n### ⚠️ REGLA ANTI-SPAM CRÍTICA:\n\n**NUNCA envíes más de un mensaje de seguimiento** sin que el cliente responda con información nueva.\n\n**Respuesta sugerida para mensaje corto inicial:**\n> \"¡Hola! 👋 Bienvenido a Retrogaming. ¿Qué consola te interesa o en qué te ayudo? Tenemos portátiles y para TV con miles de juegos 🎮\"\n\n---\n\n## 10. QUÉ HACER CUANDO NO SABES ALGO\n\n1. **NO inventes**\n2. Responde: > \"Déjame consultar eso y te aviso al tiro 😊\"\n3. El flujo de n8n alerta al dueño\n\n**Casos típicos donde debes derivar:**\n- Stock puntual de color específico\n- Promociones o descuentos fuera del precio estándar\n- Solicitudes de fotos o videos del producto\n- Consultas técnicas muy específicas\n- Reclamos o problemas post-venta complejos\n\n**Cuando piden fotos o videos**, responde:\n> \"Claro, te mando el material al tiro 📸\"\n\n---\n\n## 11. ALERTA DE DESPACHO (INTERNO — NO MOSTRAR AL CLIENTE)\n\nCuando el cliente haya confirmado que quiere el despacho y haya entregado cualquier dato (nombre, dirección, teléfono, o todos juntos), agrega al FINAL de tu respuesta:\n\n---CIERRE_CONFIRMADO---\n\n**Reglas:**\n- Emítelo UNA SOLA VEZ — solo en la primera respuesta donde el cliente entregue datos de despacho\n- El bloque va DESPUÉS de tu respuesta normal, nunca en medio\n- El cliente NO debe ver ni entender este bloque\n- Después de emitirlo, NO lo vuelvas a emitir en la misma conversación\n\n---\n\n## 12. REGLAS CRÍTICAS (no negociables)\n\n1. **Responde SIEMPRE directamente** a la última pregunta del cliente.\n2. **NO ignores preguntas específicas** — si hace 3 preguntas, responde las 3.\n3. **NO reinicies la conversación** si ya está en curso.\n4. **NO repitas saludos** si ya hubo interacción.\n5. **NO asumas intención de compra** si solo está consultando.\n6. **Usa la memoria como apoyo**, no como verdad absoluta.\n7. **NO ofrecer link de pago, transferencia ni web** en compras Santiago.\n8. **SIEMPRE aclarar** lo del cable mini HDMI antes de cerrar venta si el modelo lo usa.\n9. **SIEMPRE aclarar** que Trimui no tiene salida TV si preguntan por eso.\n10. **SIEMPRE aclarar** que Retro 620 solo trae juegos SNES si preguntan por otros sistemas.\n11. **SIEMPRE pedir aviso de 1 hora** para el punto de retiro.\n12. **NO inventes** precios, stock, fechas ni características — consulta Google Sheets o deriva.\n13. **Ningún mensaje queda sin respuesta** — ni \"hola\", ni \"?\", ni \"alo\".\n14. **NUNCA menciones la dirección del local** hasta que el cliente confirme que retira en tienda.\n15. **Al preguntar ubicación en cierre, usa ÚNICAMENTE:** \"¿Es para Santiago o región?\"\n16. **El mensaje de apertura se envía UNA SOLA VEZ** — no lo repitas si el cliente ya respondió.\n17. **Juegos confirmados de la lista** → responde SÍ con seguridad, sin derivar al dueño.\n18. **Juegos NO confirmados** → responde genérico + emite JUEGO_ALERT interno.\n19. **Cuando el cliente mande un video** → siempre pregunta primero si es problema técnico antes de responder otra cosa.\n20. **Problemas técnicos post-venta** → SIEMPRE deriva al +56 9 8267 2514, nunca intentes resolverlos tú.\n\n---\n\n## 13. EJEMPLOS DE RESPUESTAS MODELO\n\n**Cliente llega con: \"quiero una R36S\"**\n**Tú:** (envías el mensaje predeterminado de R36S exactamente como está escrito en sección 2)\n\n**Cliente llega con mensaje no reconocido:**\n**Tú:** \"¡Hola! 👋 Gracias por escribirnos 🙌 Tenemos varias consolas retro disponibles, tanto portátiles como para TV, con miles de juegos 🎮 ¿Cuál te llama la atención o en qué rango de precio estás buscando? Así te ayudo mejor 👌\"\n\n**Cliente:** \"¿tiene Mortal Kombat?\"\n**Tú:** \"Sí, trae Mortal Kombat 🎮 Viene incluido entre los clásicos. ¿Algo más que quieras saber?\"\n\n**Cliente:** \"¿tiene FIFA?\"\n**Tú:** \"Tiene miles de títulos incluidos 🎮 Déjame confirmar ese en particular y te aviso al tiro 😊\"\n(+ emites internamente: ---JUEGO_ALERT|phone:<numero>|juego:FIFA|consola:<consola_interes>---)\n\n**Cliente:** \"¿la Retro 620 tiene GTA?\"\n**Tú:** \"La Retro 620 viene con juegos de Super Nintendo, así que GTA no viene incluido 😕 Si buscas GTA, la R36 Ultra lo trae 🎮 ¿Te cuento más sobre ella?\"\n\n**Cliente:** \"¿la R36S tiene GTA?\"\n**Tú:** \"Tiene miles de títulos incluidos 🎮 Déjame confirmar ese en particular y te aviso al tiro 😊\"\n(+ emites internamente: ---JUEGO_ALERT|phone:<numero>|juego:GTA|consola:R36S---)\n\n**Cliente:** \"hacen delivery?\"\n**Tú:** \"Sí 😊 En Santiago despacho mismo día o al siguiente, $3.000 general, y pagas al recibir. A regiones mandamos por Bluexpress en 2-3 días hábiles. ¿Desde dónde me escribes?\"\n\n**Cliente:** \"ya la quiero, la RG406V\"\n**Tú:** \"¡Excelente elección! 🎮 Viene con estuche de regalo. ¿Es para Santiago o región?\"\n\n**Cliente:** \"¿este chat es con una persona o un bot?\"\n**Tú:** \"Jaja buena pregunta 😄 Soy el asistente de Retrogaming 🎮 Pero si prefieres, le digo a mi esclavo humano que deje de jugar y te atienda 😂 ¿Quieres que te conecte con él?\"\n\n**Ejemplo de cierre con alerta de despacho:**\n\"¡Perfecto Juan! 🎮 Coordinamos el despacho para hoy o mañana. Pagas al recibir y puedes probarla antes 👌\n---CIERRE_CONFIRMADO---\"\n\n**Cliente manda un video:**\n**Tú:** \"¡Gracias por el video! 🎮 ¿Es algún problema técnico con la consola o me lo mandas para mostrarme algo?\"\n\n**Cliente:** \"sí, no enciende\"\n**Tú:** \"Entendido 😊 Para problemas técnicos te contactas directamente con nuestro equipo de post-venta, ellos te ayudan al tiro 👌\n📞 +56 9 8267 2514\"\n\n**Cliente:** \"no, te muestro los juegos que tiene\"\n**Tú:** (continúa conversación normal sobre los juegos)\n\n---CIERRE_CONFIRMADO---\""
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        1568,
+        -192
+      ],
+      "id": "09a4c533-35e0-42a2-bacc-15a5e41f679f",
+      "name": "Asistente de Ventas",
+      "notesInFlow": false
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://graph.facebook.com/v19.0/1057954690733010/messages",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer EAAhdIjlJTN4BRR6f276bDjPmoBZApKMJwpefgPi2BJ5ODw8BJL4dzKzkXn7VXIDTBVKb94gnzmJqGEU2ULnOOzBL00cwwEooIPqZCfu5xXjKDeReU9Tq1MkMpFr9PCNst7s3z3FLK6GY0VEHKJLv7i7K3HwQA6pZCfvTYQuPK9sLYJFBnN4HcBdKRpGD2FQKwZDZD"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"messaging_product\": \"whatsapp\",\n  \"recipient_type\": \"individual\",\n  \"to\": \"{{ $node['Entrada de WhatsApp'].json.body.entry[0].changes[0].value.messages[0].from }}\",\n  \"type\": \"text\",\n  \"text\": {\n    \"body\": \"{{ $('Asistente de Ventas').item.json.output.replace(/---JUEGO_ALERT\\|.*?---/gs, '').replace(/---DESPACHO_ALERT\\|.*?---/gs, '').replace(/\\*\\*/g, '').replace(/\\*/g, '').replace(/[\\r\\n]+/g, ' ').replace(/\\\"/g, '\\\\\\\"').trim() }}\"\n  }\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        3024,
+        -32
+      ],
+      "id": "4fde3e4d-6a29-4d0e-82d2-f6b7aaf2d388",
+      "name": "Enviar Respuesta WhatsApp"
+    },
+    {
+      "parameters": {
+        "sessionIdType": "customKey",
+        "sessionKey": "={{ $('Guardar Msg Cliente').first().json.phone }}",
+        "contextWindowLength": 10
+      },
+      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+      "typeVersion": 1.3,
+      "position": [
+        1664,
+        32
+      ],
+      "id": "7706eda2-78f7-4d3b-8473-182dec60ddb4",
+      "name": "Memoria Conversacional Cliente"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "e2d56cf5-57ac-4dd9-a307-50536f1953d8",
+              "name": "mensaje",
+              "value": "={{ $json.message }}",
+              "type": "string"
+            },
+            {
+              "id": "c81060c2-d1c4-40b0-9e4f-bd52b6ac4ded",
+              "name": "cliente",
+              "value": "={{ $json.from }}",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1216,
+        -768
+      ],
+      "id": "9c905ae9-7d5f-45c5-89b4-4dca7197267a",
+      "name": "Edit Fields1"
+    },
+    {
+      "parameters": {
+        "authentication": "serviceAccount",
+        "documentId": {
+          "__rl": true,
+          "value": "1o4z7-erlMnHStSWUcjaX3y1T3nLbE9szbYz3U2QbIkA",
+          "mode": "list",
+          "cachedResultName": "Informacion para agente IA",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1o4z7-erlMnHStSWUcjaX3y1T3nLbE9szbYz3U2QbIkA/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Productos",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1o4z7-erlMnHStSWUcjaX3y1T3nLbE9szbYz3U2QbIkA/edit#gid=0"
+        },
+        "filtersUI": {
+          "values": [
+            {
+              "lookupColumn": "Consola ",
+              "lookupValue": "={{$fromAI(\"producto\")}}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheetsTool",
+      "typeVersion": 4.7,
+      "position": [
+        1792,
+        64
+      ],
+      "id": "03792365-f997-4890-921f-efe715089957",
+      "name": "Get row(s) in sheet in Google Sheets",
+      "credentials": {
+        "googleApi": {
+          "id": "PJiT0Of6T9fol9ji",
+          "name": "Google Sheets account 3"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "tableId": "conversaciones",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "phone",
+              "fieldValue": "={{ $('Normalizador de Datos').item.json.from }}"
+            },
+            {
+              "fieldId": "rol",
+              "fieldValue": "cliente"
+            },
+            {
+              "fieldId": "mensaje",
+              "fieldValue": "={{ $('Convertir Audio a Texto').isExecuted ? $('Convertir Audio a Texto').first().json.message : $('Edit Fields1').isExecuted ? $('Edit Fields1').first().json.mensaje : $('Normalizador de Datos').item.json.text }}"
+            },
+            {
+              "fieldId": "media_url",
+              "fieldValue": "={{ $('Normalizador de Datos').item.json.audio_id ? 'https://txbtmshmtustcrtpjqaj.supabase.co/storage/v1/object/public/crm-media/audio/' + $('Normalizador de Datos').item.json.audio_id + '.ogg' : '' }}"
+            },
+            {
+              "fieldId": "media_type",
+              "fieldValue": "={{ ($('Normalizador de Datos').item.json.type === 'audio' || $('Normalizador de Datos').item.json.type === 'voice') ? 'audio/ogg' : '' }}"
+            },
+            {
+              "fieldId": "message_id",
+              "fieldValue": "={{ $('Normalizador de Datos').item.json.message_id }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        352,
+        -352
+      ],
+      "id": "2b1bfe8f-b6c2-4c3a-8f37-8c1c684c1742",
+      "name": "Guardar Msg Cliente",
+      "credentials": {
+        "supabaseApi": {
+          "id": "QjD9ERwfzvAAVWZk",
+          "name": "Supabase account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "tableId": "conversaciones",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "phone",
+              "fieldValue": "={{ $('Normalizador de Datos').item.json.from }}"
+            },
+            {
+              "fieldId": "rol",
+              "fieldValue": "agente"
+            },
+            {
+              "fieldId": "mensaje",
+              "fieldValue": "={{ $('Asistente de Ventas').item.json.output }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        3824,
+        -32
+      ],
+      "id": "6382e4cd-6188-4189-9e44-23c7ffc027df",
+      "name": "Guardar Respuesta Agente",
+      "credentials": {
+        "supabaseApi": {
+          "id": "QjD9ERwfzvAAVWZk",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "017e7c32-3c2c-482a-9d11-ff864c78dbc0",
+              "leftValue": "={{$json.modo}}",
+              "rightValue": "agente",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        944,
+        -128
+      ],
+      "id": "272aaebd-6fab-40d6-beb8-4351026308c3",
+      "name": "Modo agente"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "fda85134-842c-414d-aacc-d207de772f6a",
+              "name": "modo",
+              "value": "={{ $json.modo }}",
+              "type": "string"
+            },
+            {
+              "id": "05ea348c-1963-44b7-9ae4-b6cbc964cfc5",
+              "name": "phone",
+              "value": "={{ $('Guardar Msg Cliente').item.json.phone }}",
+              "type": "string"
+            },
+            {
+              "id": "351562e9-c5fb-4065-b268-f7fc4352f217",
+              "name": "mensaje",
+              "value": "={{ $('Guardar Msg Cliente').item.json.mensaje }}\n\n[SISTEMA INTERNO: Si en esta conversación tienes confirmados nombre, teléfono, consola y color — emite el bloque DESPACHO_ALERT al final de tu respuesta.]",
+              "type": "string"
+            },
+            {
+              "id": "952776e9-1087-4551-afe4-9152ab5115d7",
+              "name": "type",
+              "value": "={{ $('Normalizador de Datos').item.json.type }}",
+              "type": "string"
+            },
+            {
+              "id": "ed4c6966-0bb5-445f-95eb-e39985342b08",
+              "name": "text",
+              "value": "={{ $('Normalizador de Datos').item.json.text }}",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1200,
+        -192
+      ],
+      "id": "39f9a31d-7d60-4e9d-bec5-ced8bdf9f1c5",
+      "name": "Edit Fields"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.telegram.org/bot8741986437:AAFLihWMC5rVGKuW2g4N8a34wIZnH81kYAc/sendMessage",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"chat_id\": \"1838899815\",\n  \"text\": \"🎮 NUEVO CLIENTE\\n\\nTeléfono: {{ $json.phone }}\\nPrimer mensaje: {{ $json.mensaje }}\",\n  \"parse_mode\": \"HTML\"\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        880,
+        64
+      ],
+      "id": "1f9a63d6-8c1c-40ec-aa71-0ed60afab5a4",
+      "name": "Alerta Telegram"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.telegram.org/bot8741986437:AAFLihWMC5rVGKuW2g4N8a34wIZnH81kYAc/sendMessage",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"chat_id\": \"1838899815\",\n  \"text\": \"🚨 MODO MANUAL ACTIVADO\\n\\nCliente: {{ $json.phone }}\\nMotivo: Cliente pidió hablar con humano\",\n  \"parse_mode\": \"HTML\"\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        1120,
+        144
+      ],
+      "id": "3721803c-8bc0-406d-a9fb-4730ba5314be",
+      "name": "Alerta Takeover"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.telegram.org/bot8741986437:AAFLihWMC5rVGKuW2g4N8a34wIZnH81kYAc/sendMessage",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"chat_id\": \"1838899815\",\n  \"text\": \"⚠️ BOT NO PUDO RESPONDER\\n\\nCliente: {{ $('Guardar Msg Cliente').item.json.phone }}\\nMensaje: {{ $('Guardar Msg Cliente').item.json.mensaje }}\",\n  \"parse_mode\": \"HTML\"\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        2512,
+        64
+      ],
+      "id": "bb301c4e-7f44-405e-afda-ece568023a4e",
+      "name": "Alerta Sin Respuesta"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "e0aa69e3-7d37-4594-bd6c-6ba8197c98e9",
+              "leftValue": "={{ $json.length }}",
+              "rightValue": "=0",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        560,
+        16
+      ],
+      "id": "f70cf8dc-6974-4bc6-8c3a-b238e348d70d",
+      "name": "Nuevo Cliente"
+    },
+    {
+      "parameters": {
+        "url": "=https://txbtmshmtustcrtpjqaj.supabase.co/rest/v1/clientes?phone=eq.{{ $('Normalizador de Datos').item.json.from }}&select=phone",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR4YnRtc2htdHVzdGNydHBqcWFqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4OTAyODAsImV4cCI6MjA5MjQ2NjI4MH0.QtiBvL60BvP0fEqZa2cfo1Lc-65U-F0JCAh9jJzeShM"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR4YnRtc2htdHVzdGNydHBqcWFqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4OTAyODAsImV4cCI6MjA5MjQ2NjI4MH0.QtiBvL60BvP0fEqZa2cfo1Lc-65U-F0JCAh9jJzeShM"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        768,
+        -368
+      ],
+      "id": "9094e352-3f88-447f-8c98-79d80f9f527e",
+      "name": "Chequear cliente existe",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "tableId": "clientes",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "phone",
+              "fieldValue": "={{ $('Normalizador de Datos').item.json.from }}"
+            },
+            {
+              "fieldId": "modo",
+              "fieldValue": "agente"
+            },
+            {
+              "fieldId": "ultimo_mensaje",
+              "fieldValue": "={{ $now }}"
+            },
+            {
+              "fieldId": "estado",
+              "fieldValue": "activo"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        128,
+        -336
+      ],
+      "id": "cdbfc319-2c86-45ad-be45-3379637c6125",
+      "name": "crear cliente",
+      "credentials": {
+        "supabaseApi": {
+          "id": "QjD9ERwfzvAAVWZk",
+          "name": "Supabase account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.telegram.org/bot8741986437:AAFLihWMC5rVGKuW2g4N8a34wIZnH81kYAc/sendMessage",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"chat_id\": \"1838899815\",\n  \"text\": \"🚨 CLIENTE QUIERE DESPACHAR\\n\\nTeléfono: {{ $('Entrada de WhatsApp').item.json.body.entry[0].changes[0].value.messages[0].from }}\\n\\nRevisa la conversación en el CRM y toma control 👆\"\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        3024,
+        -256
+      ],
+      "id": "49a4fb14-775c-48e3-ae31-f2b68725b508",
+      "name": "HTTP Telegram"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://graph.facebook.com/v19.0/1057954690733010/messages",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer EAAhdIjlJTN4BRR6f276bDjPmoBZApKMJwpefgPi2BJ5ODw8BJL4dzKzkXn7VXIDTBVKb94gnzmJqGEU2ULnOOzBL00cwwEooIPqZCfu5xXjKDeReU9Tq1MkMpFr9PCNst7s3z3FLK6GY0VEHKJLv7i7K3HwQA6pZCfvTYQuPK9sLYJFBnN4HcBdKRpGD2FQKwZDZD"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"messaging_product\": \"whatsapp\",\n  \"recipient_type\": \"individual\",\n  \"to\": \"{{ $node['Entrada de WhatsApp'].json.body.entry[0].changes[0].value.messages[0].from }}\",\n  \"type\": \"text\",\n  \"text\": {\n    \"body\": \"¡Perfecto! Un agente tomará control ahora para coordinar tu despacho. Te contactamos en los próximos minutos para confirmar los detalles. 🚀\"\n  }\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        3520,
+        -272
+      ],
+      "id": "1885e665-9676-49fc-a03b-8a9084b398e7",
+      "name": "Enviar Respuesta WhatsApp1"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "4a215dfd-7433-4f4a-aadf-49bd3710355a",
+              "leftValue": "={{ $('Asistente de Ventas').item.json.output }}",
+              "rightValue": "anti-spam",
+              "operator": {
+                "type": "string",
+                "operation": "notContains"
+              }
+            },
+            {
+              "id": "1ba17890-b11b-4171-8231-e4bf22ed6b16",
+              "leftValue": "={{ $('Asistente de Ventas').item.json.output }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        1872,
+        -336
+      ],
+      "id": "e5c67b65-e58a-4877-8c03-7d5116d7f70b",
+      "name": "Hay respuesta?"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "addf0026-4f56-42c4-b1a6-7a6551b41a86",
+              "leftValue": "={{ $('Asistente de Ventas').item.json.output }}",
+              "rightValue": "---CIERRE_CONFIRMADO---",
+              "operator": {
+                "type": "string",
+                "operation": "contains"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        2736,
+        -192
+      ],
+      "id": "6bfdb82e-19b5-4ff1-9239-e7fa09bcfa4e",
+      "name": "Contiene despacho, alerta?"
+    },
+    {
+      "parameters": {
+        "url": "=https://txbtmshmtustcrtpjqaj.supabase.co/rest/v1/clientes?phone=eq.{{$('Guardar Msg Cliente').item.json.phone}}&select=modo",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR4YnRtc2htdHVzdGNydHBqcWFqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4OTAyODAsImV4cCI6MjA5MjQ2NjI4MH0.QtiBvL60BvP0fEqZa2cfo1Lc-65U-F0JCAh9jJzeShM"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR4YnRtc2htdHVzdGNydHBqcWFqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4OTAyODAsImV4cCI6MjA5MjQ2NjI4MH0.QtiBvL60BvP0fEqZa2cfo1Lc-65U-F0JCAh9jJzeShM"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        672,
+        -160
+      ],
+      "id": "6cc783fa-de5d-4e91-a95d-7c3d9881928e",
+      "name": "Chequear modo cliente"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "6b3d5364-3ea3-4b74-9681-0d9122577e9b",
+              "leftValue": "={{ $('Guardar Msg Cliente').item.json.mensaje.toLowerCase() }}",
+              "rightValue": "listo",
+              "operator": {
+                "type": "string",
+                "operation": "contains"
+              }
+            },
+            {
+              "id": "fc19e1c8-0c03-4f5d-ac4f-81d9e122cd23",
+              "leftValue": "={{ $('Guardar Msg Cliente').item.json.mensaje.toLowerCase() }}",
+              "rightValue": "dale",
+              "operator": {
+                "type": "string",
+                "operation": "contains"
+              }
+            },
+            {
+              "id": "7d00b1fe-5768-4222-ae84-e702266de02f",
+              "leftValue": "={{ $('Guardar Msg Cliente').item.json.mensaje.toLowerCase() }}",
+              "rightValue": "la quiero",
+              "operator": {
+                "type": "string",
+                "operation": "contains"
+              }
+            },
+            {
+              "id": "8c97e1b2-29eb-4101-a6b3-331b61bf88ac",
+              "leftValue": "={{ $('Guardar Msg Cliente').item.json.mensaje.toLowerCase() }}",
+              "rightValue": "la llevo",
+              "operator": {
+                "type": "string",
+                "operation": "contains"
+              }
+            },
+            {
+              "id": "6798ef6d-0845-4c2c-ac3b-be6cdb2228eb",
+              "leftValue": "={{ $('Guardar Msg Cliente').item.json.mensaje.toLowerCase() }}",
+              "rightValue": "trato",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            },
+            {
+              "id": "e7d44d98-c520-4049-83fc-05f79fe639e5",
+              "leftValue": "={{ $('Guardar Msg Cliente').item.json.mensaje.toLowerCase() }}",
+              "rightValue": "me la llevan",
+              "operator": {
+                "type": "string",
+                "operation": "contains"
+              }
+            },
+            {
+              "id": "005f7be2-2f33-4b9e-9c93-73f4f2a48f81",
+              "leftValue": "={{ $('Guardar Msg Cliente').item.json.mensaje.toLowerCase() }}",
+              "rightValue": "mandamela",
+              "operator": {
+                "type": "string",
+                "operation": "contains"
+              }
+            },
+            {
+              "id": "4438c309-3923-403f-964c-029bc61f9f94",
+              "leftValue": "={{ $('Guardar Msg Cliente').item.json.mensaje.toLowerCase() }}",
+              "rightValue": "mándamela",
+              "operator": {
+                "type": "string",
+                "operation": "contains"
+              }
+            }
+          ],
+          "combinator": "or"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        704,
+        -544
+      ],
+      "id": "bf5f422e-9231-41cf-8614-e2506e3a65be",
+      "name": "If"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.telegram.org/bot8741986437:AAFLihWMC5rVGKuW2g4N8a34wIZnH81kYAc/sendMessage",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"chat_id\": \"1838899815\",\n  \"parse_mode\": \"HTML\",\n  \"text\": \"🛒 <b>POSIBLE CIERRE DE VENTA</b>\\n\\n📱 <b>Teléfono:</b> {{ $('Guardar Msg Cliente').item.json.phone }}\\n💬 <b>Mensaje:</b> {{ $('Guardar Msg Cliente').item.json.mensaje }}\\n\\n👀 Revisa la conversación en el CRM.\"\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        912,
+        -640
+      ],
+      "id": "84069a73-bc0f-459d-8a46-bbf8cd75d491",
+      "name": "Alerta Telegram cierre"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "fb3eaf06-02fc-4040-b271-77f10525b560",
+              "leftValue": "={{ $json.output }}",
+              "rightValue": "---JUEGO_ALERT",
+              "operator": {
+                "type": "string",
+                "operation": "contains"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        2592,
+        -368
+      ],
+      "id": "224565dd-bf0b-43e0-ad75-2568cec91457",
+      "name": "If1"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.telegram.org/bot8741986437:AAFLihWMC5rVGKuW2g4N8a34wIZnH81kYAc/sendMessage",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"chat_id\": \"1838899815\",\n  \"text\": \"🎮 CONSULTA DE JUEGO\\n\\nCliente: {{ $('Entrada de WhatsApp').item.json.body.entry[0].changes[0].value.messages[0].from }}\\n\\n{{ $('Asistente de Ventas').item.json.text.match(/---JUEGO_ALERT\\\\|.*?---/)[0] }}\"\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        2928,
+        -400
+      ],
+      "id": "c22db1d9-2c41-46d2-ac3c-90466ebaa106",
+      "name": "HTTP Request"
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "clientes",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "phone",
+              "condition": "eq",
+              "keyValue": "={{ $('Entrada de WhatsApp').item.json.body.entry[0].changes[0].value.messages[0].from }}"
+            }
+          ]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "modo",
+              "fieldValue": "humano"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        3232,
+        -256
+      ],
+      "id": "922ff35e-8afd-4755-a3a9-66be0a545040",
+      "name": "Update a row",
+      "credentials": {
+        "supabaseApi": {
+          "id": "QjD9ERwfzvAAVWZk",
+          "name": "Supabase account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://txbtmshmtustcrtpjqaj.supabase.co/storage/v1/object/crm-media/audio/{{ $('Normalizador de Datos').item.json.audio_id }}.ogg?upsert=true",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR4YnRtc2htdHVzdGNydHBqcWFqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4OTAyODAsImV4cCI6MjA5MjQ2NjI4MH0.QtiBvL60BvP0fEqZa2cfo1Lc-65U-F0JCAh9jJzeShM"
+            },
+            {
+              "name": "Content-Type",
+              "value": "audio/ogg"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "binaryData",
+        "inputDataFieldName": "data",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        2256,
+        -560
+      ],
+      "id": "d596442a-a879-49c0-b3cb-9504ed5c6dcc",
+      "name": "Subir audio Supabase",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "60772cec-35dd-47f0-91d8-2b6b0e4eebda",
+              "name": "data2",
+              "value": "={{ $binary.data }}",
+              "type": "binary"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        2080,
+        -560
+      ],
+      "id": "6e2df1b6-99ca-4c9e-a58d-39fa6a515218",
+      "name": "Duplicar binario"
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combineBy": "combineByPosition",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        2672,
+        -544
+      ],
+      "id": "00af0f0d-f35e-46ec-8939-b6e319a17ed3",
+      "name": "Merge"
+    },
+    {
+      "parameters": {
+        "respondWith": "text",
+        "responseBody": "ok",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        -208,
+        -336
+      ],
+      "id": "3f7a20d3-fc4b-4d1e-a8e5-31f10d868f0b",
+      "name": "Respond to Webhook"
+    }
+  ],
+  "connections": {
+    "Google Gemini Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Asistente de Ventas",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Clasificador de Mensaje": {
+      "main": [
+        [
+          {
+            "node": "Asistente de Ventas",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Obtener Audio",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [],
+        [
+          {
+            "node": "Obtener Audio",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "Normalizador de Datos": {
+      "main": [
+        [
+          {
+            "node": "crear cliente",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filtro de Mensaje Valido": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Entrada de WhatsApp": {
+      "main": [
+        [
+          {
+            "node": "Filtro de Mensaje Valido",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Obtener Audio": {
+      "main": [
+        [
+          {
+            "node": "Descargar Archivo de Audio",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Descargar Archivo de Audio": {
+      "main": [
+        [
+          {
+            "node": "Duplicar binario",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Transcribir Audio": {
+      "main": [
+        [
+          {
+            "node": "Convertir Audio a Texto",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Convertir Audio a Texto": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 1
+          },
+          {
+            "node": "Edit Fields1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Asistente de Ventas": {
+      "main": [
+        [
+          {
+            "node": "Hay respuesta?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Enviar Respuesta WhatsApp": {
+      "main": [
+        [
+          {
+            "node": "Guardar Respuesta Agente",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Memoria Conversacional Cliente": {
+      "ai_memory": [
+        [
+          {
+            "node": "Asistente de Ventas",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields1": {
+      "main": [
+        [
+          {
+            "node": "Asistente de Ventas",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get row(s) in sheet in Google Sheets": {
+      "ai_tool": [
+        [
+          {
+            "node": "Asistente de Ventas",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Guardar Msg Cliente": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Chequear cliente existe",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Chequear modo cliente",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Modo agente": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Alerta Takeover",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields": {
+      "main": [
+        [
+          {
+            "node": "Clasificador de Mensaje",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Nuevo Cliente": {
+      "main": [
+        [
+          {
+            "node": "Alerta Telegram",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Chequear cliente existe": {
+      "main": [
+        [
+          {
+            "node": "Nuevo Cliente",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "crear cliente": {
+      "main": [
+        [
+          {
+            "node": "Guardar Msg Cliente",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Guardar Respuesta Agente": {
+      "main": [
+        []
+      ]
+    },
+    "HTTP Telegram": {
+      "main": [
+        [
+          {
+            "node": "Update a row",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Enviar Respuesta WhatsApp1": {
+      "main": [
+        [
+          {
+            "node": "Guardar Respuesta Agente",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Hay respuesta?": {
+      "main": [
+        [
+          {
+            "node": "Contiene despacho, alerta?",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "If1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Alerta Sin Respuesta",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Contiene despacho, alerta?": {
+      "main": [
+        [
+          {
+            "node": "HTTP Telegram",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Enviar Respuesta WhatsApp",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Chequear modo cliente": {
+      "main": [
+        [
+          {
+            "node": "Modo agente",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "Alerta Telegram cierre",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If1": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update a row": {
+      "main": [
+        [
+          {
+            "node": "Enviar Respuesta WhatsApp1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Subir audio Supabase": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Duplicar binario": {
+      "main": [
+        [
+          {
+            "node": "Subir audio Supabase",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Transcribir Audio",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge": {
+      "main": [
+        [
+          {
+            "node": "Guardar Msg Cliente",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Respond to Webhook": {
+      "main": [
+        [
+          {
+            "node": "Normalizador de Datos",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {},
+  "tags": []
+}
