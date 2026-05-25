@@ -138,6 +138,10 @@ async function enviarMultiples(files){
       var fd=new FormData();fd.append('file',file,file.name);
       var upR=await fetch(API_URL+'/wa/upload?phone='+encodeURIComponent(mediaActivePhone),{method:'POST',body:fd});
       if(!upR.ok)continue;
+      var upD=await upR.json();var mediaId=upD.id;
+      var mt=file.type.startsWith('image/')?'image':'video';
+      var sendR=await fetch(API_URL+'/wa/media',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({phone:mediaActivePhone,media_id:mediaId,media_type:mt})});
+      if(!sendR.ok)continue;
       // Subir a Supabase Storage para URL pública permanente
       var storageUrl2=null;
       try{
@@ -200,9 +204,14 @@ async function enviarMedia(){
   document.getElementById('uploadProgress').style.display='block';
   try{
     label.textContent='SUBIENDO...';fill.style.width='30%';
-    var fd=new FormData();fd.append('file',archivoActual,archivoActual.name);if(caption)fd.append('caption',caption);
+    var fd=new FormData();fd.append('file',archivoActual,archivoActual.name);
     var upR=await fetch(API_URL+'/wa/upload?phone='+encodeURIComponent(mediaActivePhone),{method:'POST',body:fd});
     if(!upR.ok){var eU=await upR.json().catch(function(){return{};});throw new Error(eU.detail||eU.error&&eU.error.message||'Error subida');}
+    var upD=await upR.json();
+    fill.style.width='65%';label.textContent='ENVIANDO...';
+    var mt=archivoActual.type.startsWith('image/')?'image':'video';
+    var sendR=await fetch(API_URL+'/wa/media',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({phone:mediaActivePhone,media_id:upD.id,media_type:mt,caption:caption||undefined})});
+    if(!sendR.ok){var eS=await sendR.json().catch(function(){return{};});throw new Error(eS.detail||eS.error&&eS.error.message||'Error envio');}
     fill.style.width='90%';
     await sb.from('conversaciones').insert({phone:mediaActivePhone,rol:'humano',mensaje:caption||'[MEDIA]',media_url:URL.createObjectURL(archivoActual),media_type:archivoActual.type,leido:true});
     fill.style.width='100%';label.textContent='LISTO';
@@ -292,7 +301,10 @@ function AudioRecorder({phone,mode,n8nWebhookUrl,onSent}){
     var fd=new FormData();
     fd.append('file',blob,'audio.ogg');
     var upR=await fetch(API_URL+'/wa/upload?phone='+encodeURIComponent(phone),{method:'POST',body:fd});
-    if(!upR.ok){var e=await upR.json().catch(function(){return{};});throw new Error('WhatsApp Media: '+(e&&e.detail||e&&e.error&&e.error.message||upR.status));}
+    if(!upR.ok){var e=await upR.json().catch(function(){return{};});throw new Error('WhatsApp upload: '+(e&&e.detail||e&&e.error&&e.error.message||upR.status));}
+    var upD=await upR.json();
+    var sendR=await fetch(API_URL+'/wa/media',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({phone:phone,media_id:upD.id,media_type:'audio'})});
+    if(!sendR.ok){var e2=await sendR.json().catch(function(){return{};});throw new Error('WhatsApp send: '+(e2&&e2.detail||e2&&e2.error&&e2.error.message||sendR.status));}
   }
 
   async function notifyN8n(publicUrl){
