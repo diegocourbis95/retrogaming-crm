@@ -70,6 +70,8 @@ async def upload_media(file: UploadFile = File(...)):
 async def send_media(payload: MediaPayload):
     """Envía un mensaje de imagen, video o audio usando un media_id ya subido."""
     media_obj: dict = {"id": payload.media_id}
+    if payload.type == "audio":
+        media_obj["voice"] = True
     if payload.caption:
         media_obj["caption"] = payload.caption
     body = {
