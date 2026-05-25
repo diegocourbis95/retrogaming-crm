@@ -413,9 +413,10 @@ function InboxView({isMobile,showSidebar,setShowSidebar}){
       if(!mapa[msg.phone])mapa[msg.phone]={phone:msg.phone,nombre:null,modo:'agente',canal:msg.canal||'whatsapp',conversaciones:[]};
       mapa[msg.phone].conversaciones.push(msg);
     });
-    var r2=await sb.from('clientes').select('phone,nombre,modo');
-    if(r2.data)r2.data.forEach(function(c){if(mapa[c.phone]){mapa[c.phone].modo=c.modo||'agente';mapa[c.phone].nombre=c.nombre;}});
-    var list=Object.values(mapa).sort(function(a,b){return((b.conversaciones[0]&&b.conversaciones[0].created_at)||'').localeCompare((a.conversaciones[0]&&a.conversaciones[0].created_at)||'');});
+    var r2=await sb.from('clientes').select('phone,nombre,modo,archivado');
+    if(r2.data)r2.data.forEach(function(c){if(mapa[c.phone]){mapa[c.phone].modo=c.modo||'agente';mapa[c.phone].nombre=c.nombre;mapa[c.phone].archivado=c.archivado;}});
+    var list=Object.values(mapa).filter(function(c){return !c.archivado;});
+    list.sort((a,b)=>new Date((b.conversaciones[0]&&b.conversaciones[0].created_at)||0)-new Date((a.conversaciones[0]&&a.conversaciones[0].created_at)||0));
     setClientes(list);
   },[]);
 
