@@ -299,9 +299,8 @@ function AudioRecorder({phone,mode,n8nWebhookUrl,onSent}){
 
   async function sendViaWhatsApp(blob){
     var fd=new FormData();
-    var ext=blob.type.includes('mp4')?'mp4':blob.type.includes('webm')?'webm':'ogg';
-    fd.append('file',blob,'audio.'+ext);
-    console.log('[Audio] blob type:',blob.type,'size:',blob.size,'phone:',phone,'ext:',ext);
+    fd.append('file',blob,'audio.ogg');
+    console.log('[Audio] blob type:',blob.type,'size:',blob.size,'phone:',phone);
     var upR=await fetch(API_URL+'/wa/upload?phone='+encodeURIComponent(phone),{method:'POST',body:fd});
     console.log('[Audio] upload status:',upR.status);
     if(!upR.ok){var e=await upR.json().catch(function(){return{};});console.error('[Audio] upload error:',e);throw new Error('WhatsApp upload: '+(e&&e.detail||e&&e.error&&e.error.message||upR.status));}
@@ -360,16 +359,16 @@ function AudioRecorder({phone,mode,n8nWebhookUrl,onSent}){
     try{
       var stream=await navigator.mediaDevices.getUserMedia({audio:true});
       streamRef.current=stream;
-      var preferredMime=['audio/mp4','audio/webm;codecs=opus','audio/webm','audio/ogg;codecs=opus','audio/ogg'].find(function(t){return MediaRecorder.isTypeSupported(t);})||'';
+      var preferredMime=['audio/ogg;codecs=opus','audio/webm;codecs=opus','audio/webm'].find(function(t){return MediaRecorder.isTypeSupported(t);})||'';
       var mr=preferredMime?new MediaRecorder(stream,{mimeType:preferredMime}):new MediaRecorder(stream);
       chunksRef.current=[];
       mr.ondataavailable=function(e){if(e.data.size>0)chunksRef.current.push(e.data);};
       mr.onstop=function(){
         stream.getTracks().forEach(function(t){t.stop();});
         streamRef.current=null;
-        var actualMime=mr.mimeType||preferredMime||'audio/ogg';
-        console.log('[Audio] recorder mimeType:',actualMime);
-        var blob=new Blob(chunksRef.current,{type:actualMime});
+        console.log('[Audio] recorder mimeType:',mr.mimeType);
+        // Siempre subir como ogg;codecs=opus — WhatsApp requiere este formato para notas de voz
+        var blob=new Blob(chunksRef.current,{type:'audio/ogg;codecs=opus'});
         processAudio(blob);
       };
       mr.start();mediaRef.current=mr;setStep('recording');
