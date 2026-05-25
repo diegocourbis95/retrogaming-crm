@@ -300,11 +300,19 @@ function AudioRecorder({phone,mode,n8nWebhookUrl,onSent}){
   async function sendViaWhatsApp(blob){
     var fd=new FormData();
     fd.append('file',blob,'audio.ogg');
+    console.log('[Audio] blob type:',blob.type,'size:',blob.size,'phone:',phone);
     var upR=await fetch(API_URL+'/wa/upload?phone='+encodeURIComponent(phone),{method:'POST',body:fd});
-    if(!upR.ok){var e=await upR.json().catch(function(){return{};});throw new Error('WhatsApp upload: '+(e&&e.detail||e&&e.error&&e.error.message||upR.status));}
+    console.log('[Audio] upload status:',upR.status);
+    if(!upR.ok){var e=await upR.json().catch(function(){return{};});console.error('[Audio] upload error:',e);throw new Error('WhatsApp upload: '+(e&&e.detail||e&&e.error&&e.error.message||upR.status));}
     var upD=await upR.json();
-    var sendR=await fetch(API_URL+'/wa/media',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({to:phone,type:'audio',media_id:upD.id})});
-    if(!sendR.ok){var e2=await sendR.json().catch(function(){return{};});throw new Error('WhatsApp send: '+(e2&&e2.detail||e2&&e2.error&&e2.error.message||sendR.status));}
+    console.log('[Audio] upload response:',upD,'media_id:',upD&&upD.id);
+    if(!upD||!upD.id){throw new Error('Upload no devolvió media_id. Respuesta: '+JSON.stringify(upD));}
+    var sendBody={to:phone,type:'audio',media_id:upD.id};
+    console.log('[Audio] /wa/media body:',sendBody);
+    var sendR=await fetch(API_URL+'/wa/media',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(sendBody)});
+    console.log('[Audio] send status:',sendR.status);
+    if(!sendR.ok){var e2=await sendR.json().catch(function(){return{};});console.error('[Audio] send error:',e2);throw new Error('WhatsApp send: '+(e2&&e2.detail||e2&&e2.error&&e2.error.message||sendR.status));}
+    console.log('[Audio] send ok:',await sendR.json().catch(function(){return{};}));
   }
 
   async function notifyN8n(publicUrl){
