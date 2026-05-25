@@ -1,4 +1,6 @@
 import os
+import subprocess
+import tempfile
 import httpx
 from fastapi import APIRouter, HTTPException, UploadFile, File
 from pydantic import BaseModel
@@ -49,17 +51,46 @@ async def send_text(payload: TextPayload):
     return r.json()
 
 
+def _convert_audio_to_opus(content: bytes) -> tuple[bytes, str]:
+    """Convert audio bytes to ogg/opus using ffmpeg. Returns (converted_bytes, filename)."""
+    with tempfile.NamedTemporaryFile(suffix=".webm", delete=False) as src:
+        src.write(content)
+        src_path = src.name
+    dst_path = src_path.replace(".webm", ".ogg")
+    try:
+        subprocess.run(
+            ["ffmpeg", "-y", "-i", src_path, "-c:a", "libopus", "-b:a", "48k", dst_path],
+            check=True,
+            capture_output=True,
+        )
+        with open(dst_path, "rb") as f:
+            return f.read(), "audio.ogg"
+    finally:
+        os.unlink(src_path)
+        if os.path.exists(dst_path):
+            os.unlink(dst_path)
+
+
 @router.post("/upload")
 async def upload_media(file: UploadFile = File(...)):
     """Sube un archivo a WhatsApp Media y devuelve su media_id."""
     content = await file.read()
     base_type = (file.content_type or "application/octet-stream").split(";")[0].strip()
+
+    upload_content = content
+    upload_filename = file.filename or "upload"
+    upload_type = base_type
+
+    if base_type.startswith("audio/"):
+        upload_content, upload_filename = _convert_audio_to_opus(content)
+        upload_type = "audio/ogg"
+
     async with httpx.AsyncClient(timeout=60) as client:
         r = await client.post(
             f"{_base()}/media",
             headers=_auth(),
-            data={"messaging_product": "whatsapp", "type": base_type},
-            files={"file": (file.filename or "upload", content, base_type)},
+            data={"messaging_product": "whatsapp", "type": upload_type},
+            files={"file": (upload_filename, upload_content, upload_type)},
         )
     if not r.is_success:
         raise HTTPException(status_code=r.status_code, detail=r.json())
