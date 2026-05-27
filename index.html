@@ -266,6 +266,7 @@ function PixelLogo(){
 }
 
 
+var SUPERVISOR_URL='https://supervisor.retrogaming.cl';
 var STORAGE_BUCKET='crm-media';
 var AUDIO_STEPS={
   idle:      {icon:'🎤',label:'Grabar audio'},
@@ -393,6 +394,142 @@ function AudioRecorder({phone,mode,n8nWebhookUrl,onSent}){
         opacity:isDisabled&&!isRecording?0.35:1,animation:isRecording?'pulse 1s infinite':''}}>
       {currentStep.icon}
     </button>
+  );
+}
+
+function SupervisorButton(){
+  var [activo,setActivo]=React.useState(null);
+  var [loading,setLoading]=React.useState(false);
+
+  React.useEffect(function(){
+    fetch(SUPERVISOR_URL+'/supervisor/status')
+      .then(function(r){return r.json();})
+      .then(function(d){setActivo(d.activo);})
+      .catch(function(){setActivo(false);});
+  },[]);
+
+  async function toggle(){
+    if(loading||activo===null)return;
+    setLoading(true);
+    try{
+      var r=await fetch(SUPERVISOR_URL+'/supervisor/toggle',{
+        method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({activo:!activo})
+      });
+      var d=await r.json();
+      setActivo(d.activo);
+      showToast(d.activo?'SUPERVISOR ACTIVADO':'SUPERVISOR DESACTIVADO',d.activo?'success':'error');
+    }catch(e){showToast('ERROR AL CAMBIAR SUPERVISOR','error');}
+    setLoading(false);
+  }
+
+  if(activo===null)return null;
+  var isOn=activo;
+  return(
+    <button onClick={toggle} disabled={loading}
+      style={{fontFamily:'"Press Start 2P",monospace',fontSize:7,padding:'6px 10px',letterSpacing:1,
+        cursor:loading?'wait':'pointer',border:'2px solid '+(isOn?'var(--green)':'var(--red)'),
+        borderRadius:4,background:isOn?'var(--green-bg)':'var(--red-bg)',
+        color:isOn?'var(--green)':'var(--red)',
+        boxShadow:'2px 2px 0 '+(isOn?'var(--green)':'var(--red)'),
+        whiteSpace:'nowrap',display:'inline-flex',alignItems:'center',gap:5,
+        opacity:loading?0.6:1,transition:'all .2s',WebkitAppearance:'none'}}>
+      {loading?'...':(isOn?'🤖 Supervisor ON':'⛔ Supervisor OFF')}
+    </button>
+  );
+}
+
+function SeguimientosView(){
+  var [registros,setRegistros]=React.useState([]);
+  var [loading,setLoading]=React.useState(true);
+
+  var cargar=React.useCallback(async function(){
+    var r=await sb.from('seguimientos').select('*').order('fecha_prometida',{ascending:true});
+    setRegistros(r.data||[]);
+    setLoading(false);
+  },[]);
+
+  React.useEffect(function(){
+    cargar();
+    var interval=setInterval(cargar,30000);
+    return function(){clearInterval(interval);};
+  },[cargar]);
+
+  async function cerrar(id){
+    await sb.from('seguimientos').update({estado:'cerrado'}).eq('id',id);
+    setRegistros(function(prev){return prev.map(function(s){return s.id===id?Object.assign({},s,{estado:'cerrado'}):s;});});
+    showToast('SEGUIMIENTO CERRADO','success');
+  }
+
+  var estadoBadge=function(estado){
+    var cfg={
+      pendiente:{bg:'var(--yellow-bg)',color:'var(--yellow)',border:'var(--yellow)',label:'PENDIENTE'},
+      alertado:{bg:'#FFF0E8',color:'#D4522A',border:'#D4522A',label:'ALERTADO'},
+      cerrado:{bg:'var(--green-bg)',color:'var(--green)',border:'var(--green)',label:'CERRADO'},
+    };
+    var c=cfg[estado]||cfg.pendiente;
+    return(
+      <span style={{fontFamily:'"Press Start 2P",monospace',fontSize:6,padding:'3px 7px',borderRadius:99,
+        background:c.bg,color:c.color,border:'1.5px solid '+c.border,letterSpacing:.5,whiteSpace:'nowrap'}}>
+        {c.label}
+      </span>
+    );
+  };
+
+  return(
+    <div style={{display:'flex',flexDirection:'column',flex:1,overflow:'hidden',background:'var(--bg)'}}>
+      <div style={{padding:'14px 20px',borderBottom:'1.5px solid var(--border)',background:'var(--card2)',flexShrink:0}}>
+        <div className="pixel" style={{fontSize:10,color:'var(--accent)',marginBottom:6}}>SEGUIMIENTOS</div>
+        <div style={{fontFamily:'Inter,sans-serif',fontSize:18,fontWeight:700,color:'var(--text)'}}>Seguimientos activos</div>
+        <div className="mono" style={{fontSize:12,color:'var(--text2)',marginTop:4}}>{registros.filter(function(s){return s.estado!=='cerrado';}).length} pendientes</div>
+      </div>
+      <div className="nice-scroll" style={{flex:1,overflowY:'auto',padding:16}}>
+        {loading&&<div className="mono" style={{fontSize:13,color:'var(--text3)',textAlign:'center',padding:40}}>Cargando...</div>}
+        {!loading&&registros.length===0&&(
+          <div style={{textAlign:'center',padding:40}}>
+            <div style={{fontSize:32,marginBottom:10}}>📅</div>
+            <div className="mono" style={{fontSize:13,color:'var(--text3)'}}>Sin seguimientos registrados</div>
+          </div>
+        )}
+        {!loading&&registros.length>0&&(
+          <div style={{overflowX:'auto'}}>
+            <table style={{width:'100%',borderCollapse:'collapse',fontFamily:'JetBrains Mono,monospace',fontSize:12}}>
+              <thead>
+                <tr style={{background:'var(--card2)',borderBottom:'2px solid var(--text)'}}>
+                  {['Nombre','Teléfono','Objeción','Fecha prometida','Producto','Estado','Acción'].map(function(h){
+                    return<th key={h} style={{padding:'10px 12px',textAlign:'left',fontFamily:'"Press Start 2P",monospace',fontSize:7,color:'var(--text2)',letterSpacing:.5,whiteSpace:'nowrap'}}>{h}</th>;
+                  })}
+                </tr>
+              </thead>
+              <tbody>
+                {registros.map(function(s){
+                  return(
+                    <tr key={s.id} style={{borderBottom:'1px solid var(--border)',background:s.estado==='cerrado'?'var(--green-bg)':s.estado==='alertado'?'#FFF8F4':'var(--card)'}}>
+                      <td style={{padding:'10px 12px',fontWeight:600,color:'var(--text)',maxWidth:150,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{s.nombre||'—'}</td>
+                      <td style={{padding:'10px 12px',color:'var(--text2)'}}>{s.telefono}</td>
+                      <td style={{padding:'10px 12px',color:'var(--text)',maxWidth:200,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}} title={s.objecion_detectada}>{s.objecion_detectada||'—'}</td>
+                      <td style={{padding:'10px 12px',color:'var(--text2)',whiteSpace:'nowrap'}}>{s.fecha_prometida?new Date(s.fecha_prometida+'T12:00:00').toLocaleDateString('es-CL',{day:'2-digit',month:'2-digit',year:'numeric'}):'—'}</td>
+                      <td style={{padding:'10px 12px',color:'var(--text)',whiteSpace:'nowrap'}}>{s.producto_interes||'—'}</td>
+                      <td style={{padding:'10px 12px'}}>{estadoBadge(s.estado)}</td>
+                      <td style={{padding:'10px 12px'}}>
+                        {s.estado!=='cerrado'&&(
+                          <button onClick={function(){cerrar(s.id);}}
+                            style={{fontFamily:'"Press Start 2P",monospace',fontSize:6,padding:'5px 9px',
+                              background:'var(--green-bg)',color:'var(--green)',border:'2px solid var(--green)',
+                              borderRadius:4,cursor:'pointer',boxShadow:'2px 2px 0 var(--green)',whiteSpace:'nowrap'}}>
+                            Cerrado ✓
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+    </div>
   );
 }
 
@@ -1022,7 +1159,7 @@ function App(){
           </div>
         </div>
         <div style={{display:'flex',flex:1,height:'100%',padding:'0 8px'}}>
-          {[{id:'inbox',label:'INBOX',sub:'Conversaciones'},{id:'pipeline',label:'PIPELINE',sub:'Ventas'}].map(function(t){return(
+          {[{id:'inbox',label:'INBOX',sub:'Conversaciones'},{id:'pipeline',label:'PIPELINE',sub:'Ventas'},{id:'seguimientos',label:'📅 SEGUIM.',sub:'Seguimientos'}].map(function(t){return(
             <button key={t.id} className={'nav-tab '+(tab===t.id?'active':'')} onClick={function(){setTab(t.id);}}>
               <span>{t.label}</span>
               <span className="tab-sub">{t.sub}</span>
@@ -1030,6 +1167,7 @@ function App(){
           );})}
         </div>
         <div style={{display:'flex',alignItems:'center',gap:10,flexShrink:0}}>
+          <SupervisorButton/>
           <div className="mono" style={{fontSize:11,color:'var(--text2)',display:'flex',alignItems:'center',gap:6}}>
             <span className="live-dot"/><span>EN VIVO</span>
           </div>
@@ -1040,6 +1178,7 @@ function App(){
       <div style={{flex:1,overflow:'hidden',display:'flex',position:'relative'}}>
         {tab==='inbox'&&<InboxView isMobile={isMobile} showSidebar={showSidebar} setShowSidebar={setShowSidebar}/>}
         {tab==='pipeline'&&<PipelineView/>}
+        {tab==='seguimientos'&&<SeguimientosView/>}
       </div>
     </>
   );
