@@ -425,6 +425,8 @@ function InboxView({isMobile,showSidebar,setShowSidebar}){
     if(r2.data)r2.data.forEach(function(c){if(mapa[c.phone]){mapa[c.phone].modo=c.modo||'agente';mapa[c.phone].nombre=c.nombre;mapa[c.phone].archivado=c.archivado;}});
     var list=Object.values(mapa).filter(function(c){return !c.archivado;});
     list.sort((a,b)=>new Date((b.conversaciones[0]&&b.conversaciones[0].created_at)||0)-new Date((a.conversaciones[0]&&a.conversaciones[0].created_at)||0));
+    var freshPhones=new Set(list.map(function(c){return c.phone;}));
+    if(activePhoneRef.current&&!freshPhones.has(activePhoneRef.current)){setActivePhone(null);setMensajes([]);}
     setClientes(list);
   },[]);
 
