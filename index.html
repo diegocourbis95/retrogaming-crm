@@ -402,9 +402,7 @@ function SupervisorButton(){
   var [loading,setLoading]=React.useState(false);
 
   React.useEffect(function(){
-    fetch(SUPERVISOR_URL+'/supervisor/status',{
-      headers:{'X-API-Key':'02ae87dc10dcd230d2cf957cbcee1d37c14cb6f124dd131198670bbe8b6b46d8'}
-    })
+    fetch(SUPERVISOR_URL+'/crm/status')
       .then(function(r){return r.json();})
       .then(function(d){setActivo(d.activo);})
       .catch(function(){setActivo(false);});
@@ -414,8 +412,8 @@ function SupervisorButton(){
     if(loading||activo===null)return;
     setLoading(true);
     try{
-      var r=await fetch(SUPERVISOR_URL+'/supervisor/toggle',{
-        method:'POST',headers:{'Content-Type':'application/json','X-API-Key':'02ae87dc10dcd230d2cf957cbcee1d37c14cb6f124dd131198670bbe8b6b46d8'},
+      var r=await fetch(SUPERVISOR_URL+'/crm/toggle',{
+        method:'POST',headers:{'Content-Type':'application/json'},
         body:JSON.stringify({activo:!activo})
       });
       var d=await r.json();
