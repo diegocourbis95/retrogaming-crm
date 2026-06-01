@@ -402,7 +402,9 @@ function SupervisorButton(){
   var [loading,setLoading]=React.useState(false);
 
   React.useEffect(function(){
-    fetch(SUPERVISOR_URL+'/supervisor/status')
+    fetch(SUPERVISOR_URL+'/supervisor/status',{
+      headers:{'X-API-Key':'02ae87dc10dcd230d2cf957cbcee1d37c14cb6f124dd131198670bbe8b6b46d8'}
+    })
       .then(function(r){return r.json();})
       .then(function(d){setActivo(d.activo);})
       .catch(function(){setActivo(false);});
@@ -413,7 +415,7 @@ function SupervisorButton(){
     setLoading(true);
     try{
       var r=await fetch(SUPERVISOR_URL+'/supervisor/toggle',{
-        method:'POST',headers:{'Content-Type':'application/json'},
+        method:'POST',headers:{'Content-Type':'application/json','X-API-Key':'02ae87dc10dcd230d2cf957cbcee1d37c14cb6f124dd131198670bbe8b6b46d8'},
         body:JSON.stringify({activo:!activo})
       });
       var d=await r.json();
@@ -852,15 +854,30 @@ function InboxView({isMobile,showSidebar,setShowSidebar}){
                 var label=m.rol==='cliente'?'CLIENTE':m.rol==='agente'?'AGENTE IA':'TU';
                 var hora=new Date(m.created_at).toLocaleTimeString('es-CL',{hour:'2-digit',minute:'2-digit'});
                 var contenido=null;
+                var esAudioTranscrito=m.media_type&&m.media_type.includes('audio')&&m.mensaje&&m.mensaje!=='[AUDIO]'&&m.mensaje!=='[MEDIA]';
                 if(m.media_url&&m.media_type){
                   if(m.media_type.startsWith('image/')){
                     contenido=<img src={m.media_url} style={{maxWidth:'100%',maxHeight:200,borderRadius:3,display:'block',cursor:'pointer'}} onClick={()=>window.open(m.media_url,'_blank')}/>;
                   }else if(m.media_type.startsWith('audio/')){
-                    contenido=<audio controls style={{width:'100%',minWidth:200,marginTop:2}}><source src={m.media_url} type={m.media_type}/></audio>;
+                    // Audio transcrito: mostrar ícono 🎤 + texto + player
+                    if(esAudioTranscrito){
+                      contenido=<>
+                        <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:6}}>
+                          <span style={{fontSize:16}}>🎤</span>
+                          <span style={{fontSize:11,color:m.rol==='cliente'?'var(--text3)':'rgba(255,255,255,0.7)',fontStyle:'italic'}}>Audio transcrito</span>
+                        </div>
+                        <div style={{fontSize:14,marginBottom:8,lineHeight:1.5}}>{m.mensaje}</div>
+                        <audio controls style={{width:'100%',minWidth:200}}><source src={m.media_url} type={m.media_type}/></audio>
+                      </>;
+                    }else{
+                      // Audio sin transcripción, solo player
+                      contenido=<audio controls style={{width:'100%',minWidth:200,marginTop:2}}><source src={m.media_url} type={m.media_type}/></audio>;
+                    }
                   }else{
                     contenido=<video controls playsInline style={{maxWidth:'100%',borderRadius:3,display:'block'}}><source src={m.media_url} type={m.media_type}/></video>;
                   }
-                  if(m.mensaje&&m.mensaje!=='[MEDIA]'&&m.mensaje!=='[AUDIO]')contenido=<>{contenido}<div style={{fontSize:13,marginTop:4}}>{m.mensaje}</div></>;
+                  // Caption para imágenes/videos (no audio, ya lo manejamos arriba)
+                  if(!m.media_type.startsWith('audio/')&&m.mensaje&&m.mensaje!=='[MEDIA]'&&m.mensaje!=='[AUDIO]')contenido=<>{contenido}<div style={{fontSize:13,marginTop:4}}>{m.mensaje}</div></>;
                 }else if(m.mensaje==='[AUDIO]'){
                   contenido=<div style={{fontSize:12,color:'var(--text3)',fontStyle:'italic'}}>🎤 Audio (sin URL guardada)</div>;
                 }else if(m.mensaje==='[IMAGEN]'||m.mensaje==='[IMAGE]'){
