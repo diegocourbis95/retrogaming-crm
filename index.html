@@ -62,6 +62,15 @@ body{font-family:"Inter",system-ui,sans-serif;background:var(--bg);color:var(--t
 .drop-zone input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%}
 .progress-bar{width:100%;height:8px;background:var(--bg3);border:2px solid var(--text);border-radius:2px;overflow:hidden}
 .progress-fill{height:100%;background:var(--blue);transition:width .3s ease;width:0%}
+.login-screen{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:var(--bg);z-index:9999}
+.login-box{background:var(--card);border:3px solid var(--text);border-radius:8px;box-shadow:4px 4px 0 var(--text);padding:32px 28px;width:90%;max-width:360px}
+.login-title{font-family:"Press Start 2P",monospace;font-size:11px;text-align:center;margin-bottom:8px;letter-spacing:1px;color:var(--accent)}
+.login-subtitle{font-family:"JetBrains Mono",monospace;font-size:11px;text-align:center;margin-bottom:24px;color:var(--text3)}
+.login-input{width:100%;font-family:"JetBrains Mono",monospace;font-size:14px;padding:12px;border:2px solid var(--border2);border-radius:4px;background:var(--bg2);color:var(--text);outline:none;margin-bottom:16px;-webkit-appearance:none}
+.login-input:focus{border-color:var(--accent)}
+.login-error{font-family:"JetBrains Mono",monospace;font-size:10px;color:var(--red);text-align:center;margin-bottom:12px;min-height:14px}
+.logout-link{font-family:"JetBrains Mono",monospace;font-size:10px;color:var(--text3);cursor:pointer;text-decoration:none;transition:color .15s}
+.logout-link:hover{color:var(--accent)}
 @media(max-width:640px){.btn-menu{display:inline-flex}.btn-back{display:inline-flex}.tab-sub{display:none}.nav-tab{font-size:6px;padding:0 10px}}
 @media(min-width:641px){.btn-menu{display:none!important}.btn-back{display:none!important}}
 </style>
@@ -1071,96 +1080,69 @@ function PipelineView(){
 }
 
 function LoginScreen(){
-  var [email,setEmail]=useState('');
-  var [pw,setPw]=useState('');
-  var [loading,setLoading]=useState(false);
-  var [err,setErr]=useState('');
+  var [password,setPassword]=React.useState('');
+  var [error,setError]=React.useState('');
+  var [isAuth,setIsAuth]=React.useState(false);
 
-  async function ingresar(e){
+  React.useEffect(function(){
+    // Check if already authenticated
+    if(sessionStorage.getItem('crm_auth')==='true'){
+      setIsAuth(true);
+    }
+  },[]);
+
+  function handleSubmit(e){
     e.preventDefault();
-    if(!email.trim()||!pw)return;
-    setLoading(true);setErr('');
-    var r=await sb.auth.signInWithPassword({email:email.trim(),password:pw});
-    if(r.error){setErr(r.error.message);setLoading(false);}
-    // éxito: onAuthStateChange en App actualiza session automáticamente
+    if(password==='retro2026crm'){
+      sessionStorage.setItem('crm_auth','true');
+      setIsAuth(true);
+      setError('');
+    }else{
+      setError('Contraseña incorrecta');
+      setPassword('');
+    }
   }
 
-  return(
-    <div style={{position:'fixed',inset:0,background:'var(--bg)',display:'flex',flexDirection:'column',
-      alignItems:'center',justifyContent:'center',padding:16,
-      backgroundImage:'radial-gradient(circle at 20px 20px,rgba(212,82,42,.04) 1px,transparent 1px),radial-gradient(circle at 60px 60px,rgba(91,63,160,.03) 1px,transparent 1px)',
-      backgroundSize:'80px 80px'}}>
-      <div style={{width:'100%',maxWidth:340}}>
-        <div style={{textAlign:'center',marginBottom:24}}>
-          <div style={{display:'flex',justifyContent:'center',marginBottom:14}}><PixelLogo/></div>
-          <div className="pixel" style={{fontSize:11,color:'var(--accent)',letterSpacing:2}}>RETROGAMING</div>
-          <div className="mono" style={{fontSize:12,color:'var(--text3)',marginTop:6}}>CRM · Panel de administración</div>
-        </div>
-        <form onSubmit={ingresar}
-          style={{background:'var(--card)',border:'3px solid var(--text)',borderRadius:8,
-            boxShadow:'4px 4px 0 var(--text)',padding:'24px 22px',
-            display:'flex',flexDirection:'column',gap:14}}>
-          <div>
-            <div className="pixel" style={{fontSize:7,color:'var(--text2)',marginBottom:7,letterSpacing:1}}>EMAIL</div>
-            <input type="email" value={email} onChange={e=>setEmail(e.target.value)}
-              required autoFocus autoComplete="email"
-              style={{width:'100%',padding:'10px 12px',fontFamily:'"JetBrains Mono",monospace',fontSize:14,
-                border:'2px solid var(--border2)',borderRadius:4,background:'var(--bg2)',
-                color:'var(--text)',outline:'none',WebkitAppearance:'none'}}
-              onFocus={e=>e.target.style.borderColor='var(--accent)'}
-              onBlur={e=>e.target.style.borderColor='var(--border2)'}/>
-          </div>
-          <div>
-            <div className="pixel" style={{fontSize:7,color:'var(--text2)',marginBottom:7,letterSpacing:1}}>CONTRASEÑA</div>
-            <input type="password" value={pw} onChange={e=>setPw(e.target.value)}
-              required autoComplete="current-password"
-              style={{width:'100%',padding:'10px 12px',fontFamily:'"JetBrains Mono",monospace',fontSize:14,
-                border:'2px solid var(--border2)',borderRadius:4,background:'var(--bg2)',
-                color:'var(--text)',outline:'none',WebkitAppearance:'none'}}
-              onFocus={e=>e.target.style.borderColor='var(--accent)'}
-              onBlur={e=>e.target.style.borderColor='var(--border2)'}/>
-          </div>
-          {err&&(
-            <div style={{background:'var(--red-bg)',border:'1.5px solid var(--red)',borderRadius:4,
-              padding:'8px 12px',fontFamily:'"JetBrains Mono",monospace',fontSize:12,color:'var(--red)'}}>
-              {err}
-            </div>
-          )}
-          <button type="submit" className="btn btn-primary"
-            disabled={loading||!email.trim()||!pw}
-            style={{width:'100%',justifyContent:'center',fontSize:9,padding:'12px 16px',marginTop:2}}>
-            {loading?'VERIFICANDO...':'INGRESAR'}
-          </button>
-        </form>
-      </div>
-    </div>
+  function handleKeyPress(e){
+    if(e.key==='Enter'){
+      handleSubmit(e);
+    }
+  }
+
+  if(isAuth){
+    return React.createElement(App,null);
+  }
+
+  return React.createElement('div',{className:'login-screen'},
+    React.createElement('div',{className:'login-box'},
+      React.createElement('div',{className:'login-title'},'RETROGAMING CRM'),
+      React.createElement('div',{className:'login-subtitle'},'Acceso restringido'),
+      React.createElement('form',{onSubmit:handleSubmit},
+        React.createElement('input',{
+          type:'password',
+          className:'login-input',
+          placeholder:'Contraseña',
+          value:password,
+          onChange:function(e){setPassword(e.target.value);setError('');},
+          onKeyPress:handleKeyPress,
+          autoFocus:true
+        }),
+        React.createElement('div',{className:'login-error'},error),
+        React.createElement('button',{type:'submit',className:'btn btn-primary',style:{width:'100%'}},'ENTRAR')
+      )
+    )
   );
 }
 
 function App(){
   var [tab,setTab]=useState('inbox');
-  var [loading,setLoading]=useState(true);
-  var [session,setSession]=useState(null);
   var [showSidebar,setShowSidebar]=useState(true);
   var isMobile=window.innerWidth<=640;
 
-  useEffect(function(){
-    sb.auth.getSession().then(function(r){setSession(r.data.session);setLoading(false);});
-    var sub=sb.auth.onAuthStateChange(function(_e,s){setSession(s);});
-    return function(){sub.data.subscription.unsubscribe();};
-  },[]);
-
-  async function salir(){await sb.auth.signOut();}
-
-  if(loading)return(
-    <div className="loading-overlay">
-      <div className="pixel" style={{fontSize:11,color:'var(--accent)',letterSpacing:2,textAlign:'center'}}>RETROGAMING CRM</div>
-      <div className="mono" style={{fontSize:12,color:'var(--text2)'}}>Verificando sesión...</div>
-      <div className="loading-bar"><div className="loading-fill"/></div>
-    </div>
-  );
-
-  if(!session)return <LoginScreen/>;
+  function cerrarSesion(){
+    sessionStorage.removeItem('crm_auth');
+    window.location.reload();
+  }
 
   return(
     <>
@@ -1186,8 +1168,7 @@ function App(){
           <div className="mono" style={{fontSize:11,color:'var(--text2)',display:'flex',alignItems:'center',gap:6}}>
             <span className="live-dot"/><span>EN VIVO</span>
           </div>
-          <button className="btn btn-ghost" onClick={salir} title="Cerrar sesión"
-            style={{fontSize:7,padding:'6px 10px',letterSpacing:1}}>SALIR</button>
+          <a className="logout-link" onClick={cerrarSesion} style={{cursor:'pointer'}}>Cerrar sesión</a>
         </div>
       </div>
       <div style={{flex:1,overflow:'hidden',display:'flex',position:'relative'}}>
@@ -1199,7 +1180,7 @@ function App(){
   );
 }
 
-ReactDOM.createRoot(document.getElementById('root')).render(React.createElement(App,null));
+ReactDOM.createRoot(document.getElementById('root')).render(React.createElement(LoginScreen,null));
 </script>
 </body>
 </html>
