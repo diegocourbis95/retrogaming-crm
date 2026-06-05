@@ -6,7 +6,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <title>Retrogaming CRM</title>
-<!-- v3.4 - 2026-06-05-02:15 - FIX: quitar texto [STICKER] debajo de imagen -->
+<!-- v3.5 - 2026-06-05-02:17 - Limpiar console.log debug -->
 <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=JetBrains+Mono:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://unpkg.com/react@18.3.1/umd/react.development.js"></script>
@@ -882,7 +882,6 @@ function InboxView({isMobile,showSidebar,setShowSidebar}){
                 var hora=new Date(m.created_at).toLocaleTimeString('es-CL',{hour:'2-digit',minute:'2-digit'});
                 var contenido=null;
                 var esAudioTranscrito=m.media_type&&m.media_type.includes('audio')&&m.mensaje&&m.mensaje!=='[AUDIO]'&&m.mensaje!=='[MEDIA]';
-                console.log('MSG',i,{mensaje:m.mensaje,media_url:m.media_url,media_type:m.media_type,rol:m.rol,hora:hora});
                 if(m.media_url&&m.media_type){
                   if(m.mensaje==='[STICKER]'||m.media_url.endsWith('.webp')){
                     contenido=<img src={m.media_url} style={{maxWidth:150,maxHeight:150,borderRadius:3,display:'block',cursor:'pointer'}} onClick={()=>window.open(m.media_url,'_blank')}/>;
