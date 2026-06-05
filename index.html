@@ -6,6 +6,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <title>Retrogaming CRM</title>
+<!-- v3.3 - 2026-06-05-01:58 - DEBUG: console.log agregado para stickers -->
 <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=JetBrains+Mono:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://unpkg.com/react@18.3.1/umd/react.development.js"></script>
@@ -542,6 +543,16 @@ function SeguimientosView(){
   );
 }
 
+function formatearFechaSeparador(fecha){
+  var hoy=new Date();hoy.setHours(0,0,0,0);
+  var ayer=new Date(hoy);ayer.setDate(ayer.getDate()-1);
+  var f=new Date(fecha);f.setHours(0,0,0,0);
+  if(f.getTime()===hoy.getTime())return'Hoy';
+  if(f.getTime()===ayer.getTime())return'Ayer';
+  var meses=['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+  return f.getDate()+' de '+meses[f.getMonth()];
+}
+
 function InboxView({isMobile,showSidebar,setShowSidebar}){
   var [clientes,setClientes]=useState([]);
   var readPhonesRef=useRef({});
@@ -660,6 +671,7 @@ function InboxView({isMobile,showSidebar,setShowSidebar}){
     if(filter==='unread')return(c.conversaciones||[]).some(function(m){return !m.leido&&m.rol==='cliente';});
     if(filter==='human')return c.modo==='humano';
     if(filter==='bot')return c.modo==='agente';
+    if(filter==='instagram')return c.canal==='instagram';
     return true;
   });
 
@@ -711,7 +723,8 @@ function InboxView({isMobile,showSidebar,setShowSidebar}){
     var texto=draft.trim();setDraft('');
     await sb.from('conversaciones').insert({phone:activePhone,rol:'humano',mensaje:texto,leido:true});
     try{
-      await fetch(API_URL+'/wa/send',{
+      var endpoint=active.canal==='instagram'?'/instagram/send':'/wa/send';
+      await fetch(API_URL+endpoint,{
         method:'POST',headers:{'Content-Type':'application/json'},
         body:JSON.stringify({to:activePhone,text:texto})
       });
@@ -738,13 +751,13 @@ function InboxView({isMobile,showSidebar,setShowSidebar}){
               onBlur={e=>e.target.style.borderColor='var(--border)'}/>
             {search&&<button onClick={()=>setSearch('')} style={{position:'absolute',right:8,top:'50%',transform:'translateY(-50%)',background:'var(--bg3)',color:'var(--text2)',border:'none',borderRadius:'50%',width:18,height:18,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',fontSize:12,padding:0,lineHeight:1}}>×</button>}
           </div>
-          <div style={{display:'flex',gap:4,marginTop:10}}>
-            {[['all','TODOS'],['unread','NUEVOS'],['human','YO'],['bot','BOT']].map(([k,l])=>(
+          <div style={{display:'flex',gap:3,marginTop:10,flexWrap:'wrap'}}>
+            {[['all','TODOS'],['unread','NUEVOS'],['human','YO'],['bot','BOT'],['instagram','IG']].map(([k,l])=>(
               <button key={k} onClick={()=>setFilter(k)}
-                style={{flex:1,padding:'6px 4px',fontFamily:'"Press Start 2P",monospace',fontSize:6,letterSpacing:1,cursor:'pointer',
+                style={{flex:'1 1 auto',minWidth:48,padding:'6px 4px',fontFamily:'"Press Start 2P",monospace',fontSize:5.5,letterSpacing:0.5,cursor:'pointer',
                   border:'1.5px solid '+(filter===k?'var(--text)':'var(--border)'),
                   background:filter===k?'var(--accent)':'transparent',
-                  color:filter===k?'#fff':'var(--text2)',borderRadius:4}}>{l}</button>
+                  color:filter===k?'#fff':'var(--text2)',borderRadius:4,whiteSpace:'nowrap'}}>{l}</button>
             ))}
           </div>
         </div>
@@ -855,6 +868,13 @@ function InboxView({isMobile,showSidebar,setShowSidebar}){
             )}
             <div ref={msgsRef} onScroll={handleMsgsScroll} className="nice-scroll" style={{flex:1,overflowY:'auto',padding:16,display:'flex',flexDirection:'column',gap:12,minHeight:0,position:'relative'}}>
               {mensajes.map((m,i)=>{
+                var fechaActual=new Date(m.created_at);fechaActual.setHours(0,0,0,0);
+                var mostrarSeparador=false;
+                if(i===0){mostrarSeparador=true;}
+                else{
+                  var fechaAnterior=new Date(mensajes[i-1].created_at);fechaAnterior.setHours(0,0,0,0);
+                  if(fechaActual.getTime()!==fechaAnterior.getTime())mostrarSeparador=true;
+                }
                 var right=m.rol!=='cliente';
                 var bg=m.rol==='cliente'?'var(--card)':m.rol==='agente'?'var(--purple)':'var(--green)';
                 var color=m.rol==='cliente'?'var(--text)':'#fff';
@@ -862,8 +882,11 @@ function InboxView({isMobile,showSidebar,setShowSidebar}){
                 var hora=new Date(m.created_at).toLocaleTimeString('es-CL',{hour:'2-digit',minute:'2-digit'});
                 var contenido=null;
                 var esAudioTranscrito=m.media_type&&m.media_type.includes('audio')&&m.mensaje&&m.mensaje!=='[AUDIO]'&&m.mensaje!=='[MEDIA]';
+                console.log('MSG',i,{mensaje:m.mensaje,media_url:m.media_url,media_type:m.media_type,rol:m.rol,hora:hora});
                 if(m.media_url&&m.media_type){
-                  if(m.media_type.startsWith('image/')){
+                  if(m.mensaje==='[STICKER]'||m.media_url.endsWith('.webp')){
+                    contenido=<img src={m.media_url} style={{maxWidth:150,maxHeight:150,borderRadius:3,display:'block',cursor:'pointer'}} onClick={()=>window.open(m.media_url,'_blank')}/>;
+                  }else if(m.media_type.startsWith('image/')){
                     contenido=<img src={m.media_url} style={{maxWidth:'100%',maxHeight:200,borderRadius:3,display:'block',cursor:'pointer'}} onClick={()=>window.open(m.media_url,'_blank')}/>;
                   }else if(m.media_type.startsWith('audio/')){
                     // Audio transcrito: mostrar ícono 🎤 + texto + player
@@ -897,11 +920,20 @@ function InboxView({isMobile,showSidebar,setShowSidebar}){
                   contenido=<div style={{fontSize:12,color:'var(--text3)',fontStyle:'italic'}}>📄 Documento recibido</div>;
                 }else{contenido=m.mensaje;}
                 return(
-                  <div key={i} style={{display:'flex',flexDirection:'column',alignItems:right?'flex-end':'flex-start',gap:3}}>
-                    <span className="pixel" style={{fontSize:6,color:'var(--text3)',padding:'0 4px'}}>{label}</span>
-                    <div style={{maxWidth:'74%',padding:'10px 13px',fontSize:14,lineHeight:1.5,borderRadius:4,border:'2px solid '+(m.rol==='cliente'?'var(--text)':bg),background:bg,color,boxShadow:'2px 2px 0 '+(m.rol==='cliente'?'var(--border2)':'rgba(42,31,14,.3)')}}>{contenido}</div>
-                    <span className="mono" style={{fontSize:12,color:'var(--text3)',padding:'0 4px'}}>{hora}</span>
-                  </div>
+                  <React.Fragment key={i}>
+                    {mostrarSeparador&&(
+                      <div style={{display:'flex',alignItems:'center',gap:10,margin:'16px 0'}}>
+                        <div style={{flex:1,height:1,background:'var(--border)'}}/>
+                        <span className="pixel" style={{fontSize:6,color:'var(--text3)',padding:'0 8px',letterSpacing:1}}>{formatearFechaSeparador(m.created_at)}</span>
+                        <div style={{flex:1,height:1,background:'var(--border)'}}/>
+                      </div>
+                    )}
+                    <div style={{display:'flex',flexDirection:'column',alignItems:right?'flex-end':'flex-start',gap:3}}>
+                      <span className="pixel" style={{fontSize:6,color:'var(--text3)',padding:'0 4px'}}>{label}</span>
+                      <div style={{maxWidth:'74%',padding:'10px 13px',fontSize:14,lineHeight:1.5,borderRadius:4,border:'2px solid '+(m.rol==='cliente'?'var(--text)':bg),background:bg,color,boxShadow:'2px 2px 0 '+(m.rol==='cliente'?'var(--border2)':'rgba(42,31,14,.3)')}}>{contenido}</div>
+                      <span className="mono" style={{fontSize:12,color:'var(--text3)',padding:'0 4px'}}>{hora}</span>
+                    </div>
+                  </React.Fragment>
                 );
               })}
             </div>
