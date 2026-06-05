@@ -6,7 +6,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <title>Retrogaming CRM</title>
-<!-- v3.3 - 2026-06-05-01:58 - DEBUG: console.log agregado para stickers -->
+<!-- v3.4 - 2026-06-05-02:15 - FIX: quitar texto [STICKER] debajo de imagen -->
 <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=JetBrains+Mono:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://unpkg.com/react@18.3.1/umd/react.development.js"></script>
@@ -907,7 +907,7 @@ function InboxView({isMobile,showSidebar,setShowSidebar}){
                     contenido=<video controls playsInline style={{maxWidth:'100%',borderRadius:3,display:'block'}}><source src={m.media_url} type={m.media_type}/></video>;
                   }
                   // Caption para imágenes/videos (no audio, ya lo manejamos arriba)
-                  if(!m.media_type.startsWith('audio/')&&m.mensaje&&m.mensaje!=='[MEDIA]'&&m.mensaje!=='[AUDIO]')contenido=<>{contenido}<div style={{fontSize:13,marginTop:4}}>{m.mensaje}</div></>;
+                  if(!m.media_type.startsWith('audio/')&&m.mensaje&&m.mensaje!=='[MEDIA]'&&m.mensaje!=='[AUDIO]'&&m.mensaje!=='[STICKER]')contenido=<>{contenido}<div style={{fontSize:13,marginTop:4}}>{m.mensaje}</div></>;
                 }else if(m.mensaje==='[AUDIO]'){
                   contenido=<div style={{fontSize:12,color:'var(--text3)',fontStyle:'italic'}}>🎤 Audio (sin URL guardada)</div>;
                 }else if(m.mensaje==='[IMAGEN]'||m.mensaje==='[IMAGE]'){
