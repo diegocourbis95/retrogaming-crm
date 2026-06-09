@@ -152,18 +152,8 @@ async function enviarMultiples(files){
       var mt=file.type.startsWith('image/')?'image':'video';
       var sendR=await fetch(API_URL+'/wa/media',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({to:mediaActivePhone,type:mt,media_id:mediaId})});
       if(!sendR.ok)continue;
-      // Subir a Supabase Storage para URL pública permanente
-      var storageUrl2=null;
-      try{
-        var ext2=file.name.split('.').pop();
-        var fileName2='media/'+Date.now()+'-'+i+'.'+ext2;
-        var upSB2=await sb.storage.from('crm-media').upload(fileName2,file,{contentType:file.type,upsert:false});
-        if(!upSB2.error){
-          var pubUrl2=sb.storage.from('crm-media').getPublicUrl(fileName2);
-          storageUrl2=pubUrl2.data&&pubUrl2.data.publicUrl||null;
-        }
-      }catch(e4){console.error('Storage error:',e4);}
-      var finalUrl=storageUrl2||URL.createObjectURL(file);
+      // Usar public_url de Supabase Storage (URL permanente) retornada por /wa/upload
+      var finalUrl=upD.public_url||URL.createObjectURL(file);
       await sb.from('conversaciones').insert({phone:mediaActivePhone,rol:'humano',mensaje:'[MEDIA]',media_url:finalUrl,media_type:file.type,leido:true});
       ok++;
     }catch(e){console.error(e);}
@@ -223,7 +213,9 @@ async function enviarMedia(){
     var sendR=await fetch(API_URL+'/wa/media',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({to:mediaActivePhone,type:mt,media_id:upD.id,caption:caption||undefined})});
     if(!sendR.ok){var eS=await sendR.json().catch(function(){return{};});throw new Error(eS.detail||eS.error&&eS.error.message||'Error envio');}
     fill.style.width='90%';
-    await sb.from('conversaciones').insert({phone:mediaActivePhone,rol:'humano',mensaje:caption||'[MEDIA]',media_url:URL.createObjectURL(archivoActual),media_type:archivoActual.type,leido:true});
+    // Usar public_url de Supabase Storage (URL permanente) en vez de blob temporal
+    var finalMediaUrl=upD.public_url||URL.createObjectURL(archivoActual);
+    await sb.from('conversaciones').insert({phone:mediaActivePhone,rol:'humano',mensaje:caption||'[MEDIA]',media_url:finalMediaUrl,media_type:archivoActual.type,leido:true});
     fill.style.width='100%';label.textContent='LISTO';
     showToast('MEDIA ENVIADA','success');
     setTimeout(cerrarModal,700);
