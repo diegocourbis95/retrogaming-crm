@@ -29,7 +29,7 @@ logging.getLogger("httpx").setLevel(logging.WARNING)           # Reducir ruido d
 # Asegurar que wa_router use el mismo handler
 logging.getLogger("wa_router").setLevel(logging.INFO)
 
-app = FastAPI()
+app = FastAPI(docs_url=None, redoc_url=None, openapi_url=None)
 
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
