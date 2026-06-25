@@ -206,12 +206,12 @@ async function enviarMedia(){
     label.textContent='SUBIENDO...';fill.style.width='30%';
     var fd=new FormData();fd.append('file',archivoActual,archivoActual.name);
     var upR=await fetch(API_URL+'/wa/upload?phone='+encodeURIComponent(mediaActivePhone),{method:'POST',body:fd});
-    if(!upR.ok){var eU=await upR.json().catch(function(){return{};});throw new Error(eU.detail||eU.error&&eU.error.message||'Error subida');}
+    if(!upR.ok){var eU=await upR.json().catch(function(){return{};});var errorMsg=typeof eU.detail==='string'?eU.detail:eU.detail?.error?.message||JSON.stringify(eU.detail);throw new Error(errorMsg||'Error subida');}
     var upD=await upR.json();
     fill.style.width='65%';label.textContent='ENVIANDO...';
     var mt=archivoActual.type.startsWith('image/')?'image':'video';
     var sendR=await fetch(API_URL+'/wa/media',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({to:mediaActivePhone,type:mt,media_id:upD.id,caption:caption||undefined})});
-    if(!sendR.ok){var eS=await sendR.json().catch(function(){return{};});throw new Error(eS.detail||eS.error&&eS.error.message||'Error envio');}
+    if(!sendR.ok){var eS=await sendR.json().catch(function(){return{};});var errorMsg2=typeof eS.detail==='string'?eS.detail:eS.detail?.error?.message||JSON.stringify(eS.detail);throw new Error(errorMsg2||'Error envio');}
     fill.style.width='90%';
     // Usar public_url de Supabase Storage (URL permanente) en vez de blob temporal
     var finalMediaUrl=upD.public_url||URL.createObjectURL(archivoActual);
@@ -399,47 +399,6 @@ function AudioRecorder({phone,mode,n8nWebhookUrl,onSent}){
   );
 }
 
-function SupervisorButton(){
-  var [activo,setActivo]=React.useState(null);
-  var [loading,setLoading]=React.useState(false);
-
-  React.useEffect(function(){
-    fetch(SUPERVISOR_URL+'/crm/status')
-      .then(function(r){return r.json();})
-      .then(function(d){setActivo(d.activo);})
-      .catch(function(){setActivo(false);});
-  },[]);
-
-  async function toggle(){
-    if(loading||activo===null)return;
-    setLoading(true);
-    try{
-      var r=await fetch(SUPERVISOR_URL+'/crm/toggle',{
-        method:'POST',headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({activo:!activo})
-      });
-      var d=await r.json();
-      setActivo(d.activo);
-      showToast(d.activo?'SUPERVISOR ACTIVADO':'SUPERVISOR DESACTIVADO',d.activo?'success':'error');
-    }catch(e){showToast('ERROR AL CAMBIAR SUPERVISOR','error');}
-    setLoading(false);
-  }
-
-  if(activo===null)return null;
-  var isOn=activo;
-  return(
-    <button onClick={toggle} disabled={loading}
-      style={{fontFamily:'"Press Start 2P",monospace',fontSize:7,padding:'6px 10px',letterSpacing:1,
-        cursor:loading?'wait':'pointer',border:'2px solid '+(isOn?'var(--green)':'var(--red)'),
-        borderRadius:4,background:isOn?'var(--green-bg)':'var(--red-bg)',
-        color:isOn?'var(--green)':'var(--red)',
-        boxShadow:'2px 2px 0 '+(isOn?'var(--green)':'var(--red)'),
-        whiteSpace:'nowrap',display:'inline-flex',alignItems:'center',gap:5,
-        opacity:loading?0.6:1,transition:'all .2s',WebkitAppearance:'none'}}>
-      {loading?'...':(isOn?'🤖 Supervisor ON':'⛔ Supervisor OFF')}
-    </button>
-  );
-}
 
 function SeguimientosView(){
   var [registros,setRegistros]=React.useState([]);
@@ -1187,7 +1146,6 @@ function App(){
           );})}
         </div>
         <div style={{display:'flex',alignItems:'center',gap:10,flexShrink:0}}>
-          <SupervisorButton/>
           <div className="mono" style={{fontSize:11,color:'var(--text2)',display:'flex',alignItems:'center',gap:6}}>
             <span className="live-dot"/><span>EN VIVO</span>
           </div>
