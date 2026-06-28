@@ -146,11 +146,11 @@ async function enviarMultiples(files){
     try{
       var file=validos[i];
       var fd=new FormData();fd.append('file',file,file.name);
-      var upR=await fetch(API_URL+'/wa/upload?phone='+encodeURIComponent(mediaActivePhone),{method:'POST',body:fd});
+      var upR=await fetch(API_URL+'/wa/upload?phone='+encodeURIComponent(mediaActivePhone),{method:'POST',body:fd,credentials:'include'});
       if(!upR.ok)continue;
       var upD=await upR.json();var mediaId=upD.id;
       var mt=file.type.startsWith('image/')?'image':'video';
-      var sendR=await fetch(API_URL+'/wa/media',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({to:mediaActivePhone,type:mt,media_id:mediaId})});
+      var sendR=await fetch(API_URL+'/wa/media',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({to:mediaActivePhone,type:mt,media_id:mediaId}),credentials:'include'});
       if(!sendR.ok)continue;
       // Usar public_url de Supabase Storage (URL permanente) retornada por /wa/upload
       var finalUrl=upD.public_url||URL.createObjectURL(file);
@@ -205,12 +205,12 @@ async function enviarMedia(){
   try{
     label.textContent='SUBIENDO...';fill.style.width='30%';
     var fd=new FormData();fd.append('file',archivoActual,archivoActual.name);
-    var upR=await fetch(API_URL+'/wa/upload?phone='+encodeURIComponent(mediaActivePhone),{method:'POST',body:fd});
+    var upR=await fetch(API_URL+'/wa/upload?phone='+encodeURIComponent(mediaActivePhone),{method:'POST',body:fd,credentials:'include'});
     if(!upR.ok){var eU=await upR.json().catch(function(){return{};});var errorMsg=typeof eU.detail==='string'?eU.detail:eU.detail?.error?.message||JSON.stringify(eU.detail);throw new Error(errorMsg||'Error subida');}
     var upD=await upR.json();
     fill.style.width='65%';label.textContent='ENVIANDO...';
     var mt=archivoActual.type.startsWith('image/')?'image':'video';
-    var sendR=await fetch(API_URL+'/wa/media',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({to:mediaActivePhone,type:mt,media_id:upD.id,caption:caption||undefined})});
+    var sendR=await fetch(API_URL+'/wa/media',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({to:mediaActivePhone,type:mt,media_id:upD.id,caption:caption||undefined}),credentials:'include'});
     if(!sendR.ok){var eS=await sendR.json().catch(function(){return{};});var errorMsg2=typeof eS.detail==='string'?eS.detail:eS.detail?.error?.message||JSON.stringify(eS.detail);throw new Error(errorMsg2||'Error envio');}
     fill.style.width='90%';
     // Usar public_url de Supabase Storage (URL permanente) en vez de blob temporal
@@ -304,7 +304,7 @@ function AudioRecorder({phone,mode,n8nWebhookUrl,onSent}){
     var fd=new FormData();
     fd.append('file',blob,'audio.ogg');
     console.log('[Audio] blob type:',blob.type,'size:',blob.size,'phone:',phone);
-    var upR=await fetch(API_URL+'/wa/upload?phone='+encodeURIComponent(phone),{method:'POST',body:fd});
+    var upR=await fetch(API_URL+'/wa/upload?phone='+encodeURIComponent(phone),{method:'POST',body:fd,credentials:'include'});
     console.log('[Audio] upload status:',upR.status);
     if(!upR.ok){var e=await upR.json().catch(function(){return{};});console.error('[Audio] upload error:',e);throw new Error('WhatsApp upload: '+(e&&e.detail||e&&e.error&&e.error.message||upR.status));}
     var upD=await upR.json();
@@ -312,7 +312,7 @@ function AudioRecorder({phone,mode,n8nWebhookUrl,onSent}){
     if(!upD||!upD.id){throw new Error('Upload no devolvió media_id. Respuesta: '+JSON.stringify(upD));}
     var sendBody={to:phone,type:'audio',media_id:upD.id};
     console.log('[Audio] /wa/media body:',sendBody);
-    var sendR=await fetch(API_URL+'/wa/media',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(sendBody)});
+    var sendR=await fetch(API_URL+'/wa/media',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(sendBody),credentials:'include'});
     console.log('[Audio] send status:',sendR.status);
     if(!sendR.ok){var e2=await sendR.json().catch(function(){return{};});console.error('[Audio] send error:',e2);throw new Error('WhatsApp send: '+(e2&&e2.detail||e2&&e2.error&&e2.error.message||sendR.status));}
     console.log('[Audio] send ok:',await sendR.json().catch(function(){return{};}));
@@ -677,7 +677,8 @@ function InboxView({isMobile,showSidebar,setShowSidebar}){
       var endpoint=active.canal==='instagram'?'/instagram/send':'/wa/send';
       await fetch(API_URL+endpoint,{
         method:'POST',headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({to:activePhone,text:texto})
+        body:JSON.stringify({to:activePhone,text:texto}),
+        credentials:'include'
       });
     }catch(e){console.error(e);}
     await cargarMensajes(activePhone);
