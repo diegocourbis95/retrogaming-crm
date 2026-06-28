@@ -39,6 +39,7 @@ app.add_middleware(
     allow_origins=["https://diegocourbis95.github.io"],
     allow_methods=["GET", "POST", "OPTIONS"],
     allow_headers=["Content-Type"],
+    allow_credentials=True,
 )
 
 app.include_router(wa_router)
