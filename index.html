@@ -1068,22 +1068,14 @@ function LoginScreen(){
   var [isAuth,setIsAuth]=React.useState(false);
 
   React.useEffect(function(){
-    // Check if already authenticated
-    if(sessionStorage.getItem('crm_auth')==='true'){
-      setIsAuth(true);
-    }
+    sb.auth.getSession().then(function(r){if(r.data&&r.data.session)setIsAuth(true);});
   },[]);
 
-  function handleSubmit(e){
+  async function handleSubmit(e){
     e.preventDefault();
-    if(password==='Retro1995.'){
-      sessionStorage.setItem('crm_auth','true');
-      setIsAuth(true);
-      setError('');
-    }else{
-      setError('Contraseña incorrecta');
-      setPassword('');
-    }
+    var r=await sb.auth.signInWithPassword({email:'diego.courbis.95@gmail.com',password:password});
+    if(r.error){setError('Contraseña incorrecta');setPassword('');}
+    else{setIsAuth(true);setError('');}
   }
 
   function handleKeyPress(e){
@@ -1123,8 +1115,7 @@ function App(){
   var isMobile=window.innerWidth<=640;
 
   function cerrarSesion(){
-    sessionStorage.removeItem('crm_auth');
-    window.location.reload();
+    sb.auth.signOut().then(function(){window.location.reload();});
   }
 
   return(
