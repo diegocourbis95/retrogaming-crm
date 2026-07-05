@@ -45,6 +45,11 @@ body{font-family:"Inter",system-ui,sans-serif;background:var(--bg);color:var(--t
 .toast.success{background:var(--green-bg);color:var(--green);border-color:var(--green);box-shadow:3px 3px 0 var(--green)}
 .toast.error{background:var(--red-bg);color:var(--red);border-color:var(--red);box-shadow:3px 3px 0 var(--red)}
 .toast.info{background:var(--blue-bg);color:var(--blue);border-color:var(--blue);box-shadow:3px 3px 0 var(--blue)}
+.session-banner{position:fixed;top:0;left:0;right:0;z-index:1000;padding:12px 16px;text-align:center;font-family:"JetBrains Mono",monospace;font-size:13px;font-weight:600;cursor:pointer;display:none;align-items:center;justify-content:center;gap:12px;flex-wrap:wrap}
+.session-banner.show{display:flex}
+.session-banner.expired{background:var(--red-bg);color:var(--red);border-bottom:2px solid var(--red)}
+.session-banner.reminder{background:var(--yellow-bg);color:var(--yellow);border-bottom:2px solid var(--yellow)}
+.session-banner button{font-family:"JetBrains Mono",monospace;font-size:12px;font-weight:600;padding:5px 10px;border-radius:4px;border:1.5px solid currentColor;background:transparent;color:inherit;cursor:pointer}
 .modal-overlay{position:fixed;inset:0;background:rgba(42,31,14,.65);z-index:200;display:flex;align-items:flex-end;justify-content:center;backdrop-filter:blur(2px)}
 .modal-overlay.hidden{display:none}
 .modal{background:var(--card);border:3px solid var(--text);border-radius:12px 12px 0 0;box-shadow:0 -4px 0 var(--border);width:100%;max-width:520px;max-height:90vh;overflow-y:auto}
@@ -79,6 +84,11 @@ body{font-family:"Inter",system-ui,sans-serif;background:var(--bg);color:var(--t
 <body>
 <div id="root"></div>
 <div class="toast" id="toast"></div>
+<div class="session-banner expired" id="sessionExpiredBanner" onclick="reautenticar()">⚠️ Sesión expirada — Haz clic aquí para reautenticarte</div>
+<div class="session-banner reminder" id="sessionReminderBanner">
+  <span onclick="reautenticar()" style="cursor:pointer">⚠️ Tu sesión de seguridad vence pronto — Renuévala aquí</span>
+  <button onclick="event.stopPropagation();confirmarReautenticacion()">Ya me autentiqué</button>
+</div>
 <div class="modal-overlay hidden" id="mediaModal">
   <div class="modal">
     <div class="modal-hdr">
@@ -123,6 +133,46 @@ const sb=supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
 
 function showToast(msg,type,dur){type=type||'info';dur=dur||3000;var t=document.getElementById('toast');t.textContent=msg;t.className='toast '+type+' show';setTimeout(function(){t.classList.remove('show');},dur);}
 
+var SESSION_AUTH_KEY='cf_access_last_auth';
+
+function reautenticar(){
+  window.open('https://api.retrogaming.cl/wa/send','_blank');
+}
+
+function showSessionExpiredBanner(){
+  var el=document.getElementById('sessionExpiredBanner');
+  if(el)el.classList.add('show');
+}
+
+function confirmarReautenticacion(){
+  localStorage.setItem(SESSION_AUTH_KEY,new Date().toISOString());
+  var el=document.getElementById('sessionReminderBanner');
+  if(el)el.classList.remove('show');
+}
+
+function checkSessionReminder(){
+  var stored=localStorage.getItem(SESSION_AUTH_KEY);
+  if(!stored){
+    localStorage.setItem(SESSION_AUTH_KEY,new Date().toISOString());
+    return;
+  }
+  var diasTranscurridos=(Date.now()-new Date(stored).getTime())/86400000;
+  if(diasTranscurridos>=25){
+    var el=document.getElementById('sessionReminderBanner');
+    if(el)el.classList.add('show');
+  }
+}
+checkSessionReminder();
+
+async function apiFetch(path,opts){
+  try{
+    return await fetch(API_URL+path,opts);
+  }catch(e){
+    showSessionExpiredBanner();
+    throw e;
+  }
+}
+
 var archivoActual=null,mediaActivePhone=null;
 function abrirModal(phone,mode){if(!phone||mode!=='humano')return;mediaActivePhone=phone;document.getElementById('mediaModal').classList.remove('hidden');limpiarArchivo();}
 function cerrarModal(){document.getElementById('mediaModal').classList.add('hidden');limpiarArchivo();}
@@ -146,11 +196,11 @@ async function enviarMultiples(files){
     try{
       var file=validos[i];
       var fd=new FormData();fd.append('file',file,file.name);
-      var upR=await fetch(API_URL+'/wa/upload?phone='+encodeURIComponent(mediaActivePhone),{method:'POST',body:fd,credentials:'include'});
+      var upR=await apiFetch('/wa/upload?phone='+encodeURIComponent(mediaActivePhone),{method:'POST',body:fd,credentials:'include'});
       if(!upR.ok)continue;
       var upD=await upR.json();var mediaId=upD.id;
       var mt=file.type.startsWith('image/')?'image':'video';
-      var sendR=await fetch(API_URL+'/wa/media',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({to:mediaActivePhone,type:mt,media_id:mediaId}),credentials:'include'});
+      var sendR=await apiFetch('/wa/media',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({to:mediaActivePhone,type:mt,media_id:mediaId}),credentials:'include'});
       if(!sendR.ok)continue;
       // Usar public_url de Supabase Storage (URL permanente) retornada por /wa/upload
       var finalUrl=upD.public_url||URL.createObjectURL(file);
@@ -205,12 +255,12 @@ async function enviarMedia(){
   try{
     label.textContent='SUBIENDO...';fill.style.width='30%';
     var fd=new FormData();fd.append('file',archivoActual,archivoActual.name);
-    var upR=await fetch(API_URL+'/wa/upload?phone='+encodeURIComponent(mediaActivePhone),{method:'POST',body:fd,credentials:'include'});
+    var upR=await apiFetch('/wa/upload?phone='+encodeURIComponent(mediaActivePhone),{method:'POST',body:fd,credentials:'include'});
     if(!upR.ok){var eU=await upR.json().catch(function(){return{};});var errorMsg=typeof eU.detail==='string'?eU.detail:eU.detail?.error?.message||JSON.stringify(eU.detail);throw new Error(errorMsg||'Error subida');}
     var upD=await upR.json();
     fill.style.width='65%';label.textContent='ENVIANDO...';
     var mt=archivoActual.type.startsWith('image/')?'image':'video';
-    var sendR=await fetch(API_URL+'/wa/media',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({to:mediaActivePhone,type:mt,media_id:upD.id,caption:caption||undefined}),credentials:'include'});
+    var sendR=await apiFetch('/wa/media',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({to:mediaActivePhone,type:mt,media_id:upD.id,caption:caption||undefined}),credentials:'include'});
     if(!sendR.ok){var eS=await sendR.json().catch(function(){return{};});var errorMsg2=typeof eS.detail==='string'?eS.detail:eS.detail?.error?.message||JSON.stringify(eS.detail);throw new Error(errorMsg2||'Error envio');}
     fill.style.width='90%';
     // Usar public_url de Supabase Storage (URL permanente) en vez de blob temporal
@@ -304,7 +354,7 @@ function AudioRecorder({phone,mode,n8nWebhookUrl,onSent}){
     var fd=new FormData();
     fd.append('file',blob,'audio.ogg');
     console.log('[Audio] blob type:',blob.type,'size:',blob.size,'phone:',phone);
-    var upR=await fetch(API_URL+'/wa/upload?phone='+encodeURIComponent(phone),{method:'POST',body:fd,credentials:'include'});
+    var upR=await apiFetch('/wa/upload?phone='+encodeURIComponent(phone),{method:'POST',body:fd,credentials:'include'});
     console.log('[Audio] upload status:',upR.status);
     if(!upR.ok){var e=await upR.json().catch(function(){return{};});console.error('[Audio] upload error:',e);throw new Error('WhatsApp upload: '+(e&&e.detail||e&&e.error&&e.error.message||upR.status));}
     var upD=await upR.json();
@@ -312,7 +362,7 @@ function AudioRecorder({phone,mode,n8nWebhookUrl,onSent}){
     if(!upD||!upD.id){throw new Error('Upload no devolvió media_id. Respuesta: '+JSON.stringify(upD));}
     var sendBody={to:phone,type:'audio',media_id:upD.id};
     console.log('[Audio] /wa/media body:',sendBody);
-    var sendR=await fetch(API_URL+'/wa/media',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(sendBody),credentials:'include'});
+    var sendR=await apiFetch('/wa/media',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(sendBody),credentials:'include'});
     console.log('[Audio] send status:',sendR.status);
     if(!sendR.ok){var e2=await sendR.json().catch(function(){return{};});console.error('[Audio] send error:',e2);throw new Error('WhatsApp send: '+(e2&&e2.detail||e2&&e2.error&&e2.error.message||sendR.status));}
     console.log('[Audio] send ok:',await sendR.json().catch(function(){return{};}));
@@ -677,7 +727,7 @@ function InboxView({isMobile,showSidebar,setShowSidebar}){
     await sb.from('conversaciones').insert({phone:activePhone,rol:'humano',mensaje:texto,leido:true});
     try{
       var endpoint=active.canal==='instagram'?'/instagram/send':'/wa/send';
-      await fetch(API_URL+endpoint,{
+      await apiFetch(endpoint,{
         method:'POST',headers:{'Content-Type':'application/json'},
         body:JSON.stringify({to:activePhone,text:texto}),
         credentials:'include'
@@ -693,7 +743,7 @@ function InboxView({isMobile,showSidebar,setShowSidebar}){
     setShowTemplateMenu(false);
     setTemplateEnviando(true);
     try{
-      var r=await fetch(API_URL+'/wa/template',{
+      var r=await apiFetch('/wa/template',{
         method:'POST',headers:{'Content-Type':'application/json'},
         body:JSON.stringify({to:activePhone,template_name:templateName,producto:producto}),
         credentials:'include'
