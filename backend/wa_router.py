@@ -39,6 +39,19 @@ class MediaPayload(BaseModel):
     caption: Optional[str] = None
 
 
+TEMPLATES = {
+    "seguimiento_sin_respuesta",
+    "reactivacion_conversacion",
+    "coordinacion_despacho",
+}
+
+
+class TemplatePayload(BaseModel):
+    to: str
+    template_name: str
+    producto: str
+
+
 @router.post("/send")
 async def send_text(payload: TextPayload):
     """Envía mensaje de texto por WhatsApp."""
@@ -51,6 +64,37 @@ async def send_text(payload: TextPayload):
                 "to": payload.to,
                 "type": "text",
                 "text": {"body": payload.text},
+            },
+        )
+    if not r.is_success:
+        raise HTTPException(status_code=r.status_code, detail=r.json())
+    return r.json()
+
+
+@router.post("/template")
+async def send_template(payload: TemplatePayload):
+    """Envía un template aprobado de WhatsApp con el producto como parámetro {{1}}."""
+    if payload.template_name not in TEMPLATES:
+        raise HTTPException(status_code=400, detail=f"Template desconocido: {payload.template_name}")
+
+    async with httpx.AsyncClient(timeout=30) as client:
+        r = await client.post(
+            f"{_base()}/messages",
+            headers={**_auth(), "Content-Type": "application/json"},
+            json={
+                "messaging_product": "whatsapp",
+                "to": payload.to,
+                "type": "template",
+                "template": {
+                    "name": payload.template_name,
+                    "language": {"code": "es"},
+                    "components": [
+                        {
+                            "type": "body",
+                            "parameters": [{"type": "text", "text": payload.producto}],
+                        }
+                    ],
+                },
             },
         )
     if not r.is_success:
