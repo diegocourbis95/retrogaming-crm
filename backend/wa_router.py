@@ -4,9 +4,11 @@ import tempfile
 import httpx
 import logging
 from datetime import datetime
-from fastapi import APIRouter, HTTPException, UploadFile, File, Query
+from fastapi import APIRouter, HTTPException, UploadFile, File, Query, Request
 from pydantic import BaseModel
 from typing import Optional
+
+from limiter import limiter
 
 _log = logging.getLogger(__name__)
 
@@ -17,6 +19,35 @@ WA_PHONE_ID = os.getenv("WA_PHONE_ID")
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_KEY = os.getenv("SUPABASE_KEY")
 STORAGE_BASE_URL = os.getenv("STORAGE_BASE_URL")
+
+# Límites de tamaño de Meta Cloud API (WhatsApp), usados como techo propio
+# para no gastar RAM/tiempo subiendo archivos que Meta rechazaría de todas formas.
+MAX_SIZE_IMAGE = 5 * 1024 * 1024      # 5MB
+MAX_SIZE_VIDEO = 16 * 1024 * 1024     # 16MB
+MAX_SIZE_AUDIO = 16 * 1024 * 1024     # 16MB
+MAX_SIZE_DOCUMENT = 100 * 1024 * 1024  # 100MB
+
+# Firmas (magic bytes) de los formatos que este endpoint procesa. Evita confiar
+# solo en el content-type declarado por el cliente, que se puede falsificar.
+_MAGIC_SIGNATURES = {
+    "image": [b"\xff\xd8\xff", b"\x89PNG\r\n\x1a\n", b"GIF87a", b"GIF89a"],
+    "video": [b"ftyp"],  # aparece en el offset 4 de contenedores MP4/3GP/MOV
+    "audio": [b"ID3", b"\xff\xfb", b"\xff\xf3", b"\xff\xf2", b"\xff\xf1", b"\xff\xf9", b"OggS", b"#!AMR"],
+    "document": [b"%PDF-"],
+}
+
+
+def _detect_real_category(content: bytes) -> Optional[str]:
+    """Detecta la categoría real del archivo por sus magic bytes (ignora el content-type declarado)."""
+    head = content[:16]
+    if head[:4] == b"RIFF" and content[8:12] == b"WEBP":
+        return "image"
+    if b"ftyp" in head:
+        return "video"
+    for category, signatures in _MAGIC_SIGNATURES.items():
+        if any(head.startswith(sig) for sig in signatures):
+            return category
+    return None
 
 
 def _base() -> str:
@@ -267,7 +298,8 @@ async def _upload_to_supabase_storage(content: bytes, phone: str, filename: str,
 
 
 @router.post("/upload")
-async def upload_media(file: UploadFile = File(...), phone: str = Query(...)):
+@limiter.limit("20/minute")
+async def upload_media(request: Request, file: UploadFile = File(...), phone: str = Query(...)):
     """
     Sube un archivo a WhatsApp Media y Supabase Storage, retorna media_id y public_url.
 
@@ -292,6 +324,36 @@ async def upload_media(file: UploadFile = File(...), phone: str = Query(...)):
     _log.info("📤 Archivo leído: %d bytes", len(content))
 
     base_type = (file.content_type or "application/octet-stream").split(";")[0].strip()
+
+    if base_type.startswith("image/"):
+        declared_category = "image"
+        size_limit = MAX_SIZE_IMAGE
+    elif base_type.startswith("video/"):
+        declared_category = "video"
+        size_limit = MAX_SIZE_VIDEO
+    elif base_type.startswith("audio/"):
+        declared_category = "audio"
+        size_limit = MAX_SIZE_AUDIO
+    else:
+        declared_category = "document"
+        size_limit = MAX_SIZE_DOCUMENT
+
+    if len(content) > size_limit:
+        _log.error("❌ /wa/upload - Archivo excede el límite: %d bytes (límite %d) tipo=%s",
+                  len(content), size_limit, base_type)
+        raise HTTPException(
+            status_code=413,
+            detail=f"Archivo demasiado grande ({len(content)} bytes). Límite para {base_type}: {size_limit} bytes",
+        )
+
+    real_category = _detect_real_category(content)
+    if real_category != declared_category:
+        _log.error("❌ /wa/upload - Tipo de archivo no coincide: declarado=%s (%s), detectado=%s",
+                  base_type, declared_category, real_category)
+        raise HTTPException(
+            status_code=415,
+            detail=f"El contenido del archivo no corresponde al tipo declarado ({base_type})",
+        )
 
     upload_content = content
     upload_filename = file.filename or "upload"
