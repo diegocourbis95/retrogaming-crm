@@ -97,10 +97,10 @@ body{font-family:"Inter",system-ui,sans-serif;background:var(--bg);color:var(--t
     </div>
     <div style="padding:16px">
       <div class="drop-zone" id="dropZone">
-        <input type="file" id="fileInput" accept="image/*,video/*" multiple onchange="archivoSeleccionado(event)">
+        <input type="file" id="fileInput" accept="image/*,video/*,application/pdf" multiple onchange="archivoSeleccionado(event)">
         <div style="font-size:32px;margin-bottom:10px">&#128193;</div>
         <div class="pixel" style="font-size:7px;color:var(--text2);line-height:2">TOCA PARA SELECCIONAR</div>
-        <div class="mono" style="font-size:11px;color:var(--text3);margin-top:6px">JPG / PNG / WEBP / MP4 (max 16MB)</div>
+        <div class="mono" style="font-size:11px;color:var(--text3);margin-top:6px">JPG / PNG / WEBP / MP4 (max 16MB) / PDF (max 5MB)</div>
       </div>
       <div id="mediaPreview" style="display:none;margin-top:12px">
         <div style="border:2px solid var(--border);border-radius:4px;padding:10px;background:var(--bg2);display:flex;align-items:center;gap:10px">
@@ -111,6 +111,10 @@ body{font-family:"Inter",system-ui,sans-serif;background:var(--bg);color:var(--t
           </div>
           <button onclick="limpiarArchivo()" style="background:var(--red-bg);color:var(--red);border:1px solid var(--red);border-radius:3px;padding:4px 8px;font-family:Press Start 2P,monospace;font-size:6px;cursor:pointer">X</button>
         </div>
+      </div>
+      <div id="filenameRow" style="display:none;margin-top:12px">
+        <div class="pixel" style="font-size:6px;color:var(--text2);margin-bottom:6px">NOMBRE DE ARCHIVO (VISIBLE PARA EL CLIENTE)</div>
+        <input type="text" id="filenameInput" style="width:100%;background:var(--bg2);border:2px solid var(--border2);border-radius:4px;padding:9px 10px;font-family:Inter,sans-serif;font-size:16px;color:var(--text);outline:none;-webkit-appearance:none">
       </div>
       <div id="uploadProgress" style="display:none;margin-top:10px">
         <div id="progressLabel" class="pixel" style="font-size:6px;color:var(--text2);margin-bottom:6px">ENVIANDO...</div>
@@ -173,8 +177,21 @@ async function apiFetch(path,opts){
   }
 }
 
-var archivoActual=null,mediaActivePhone=null;
-function abrirModal(phone,mode){if(!phone||mode!=='humano')return;mediaActivePhone=phone;document.getElementById('mediaModal').classList.remove('hidden');limpiarArchivo();}
+var archivoActual=null,mediaActivePhone=null,mediaActiveNombre=null;
+function mediaTypeOf(mime){
+  if(mime.startsWith('image/'))return'image';
+  if(mime.startsWith('video/'))return'video';
+  if(mime==='application/pdf')return'document';
+  return null;
+}
+function sizeLimitOf(mt){return mt==='document'?5242880:16777216;}
+function nombreBoletaDefault(){
+  var cliente=(mediaActiveNombre||'Cliente').replace(/[^a-zA-Z0-9]+/g,'_').replace(/^_+|_+$/g,'')||'Cliente';
+  var d=new Date();
+  var fecha=d.getFullYear()+String(d.getMonth()+1).padStart(2,'0')+String(d.getDate()).padStart(2,'0');
+  return 'Boleta_'+cliente+'_'+fecha+'.pdf';
+}
+function abrirModal(phone,mode,nombre){if(!phone||mode!=='humano')return;mediaActivePhone=phone;mediaActiveNombre=nombre||null;document.getElementById('mediaModal').classList.remove('hidden');limpiarArchivo();}
 function cerrarModal(){document.getElementById('mediaModal').classList.add('hidden');limpiarArchivo();}
 function archivoSeleccionado(e){
   var files=Array.from(e.target.files);
@@ -185,8 +202,8 @@ function archivoSeleccionado(e){
 }
 async function enviarMultiples(files){
   var validos=files.filter(function(f){
-    var valid=['image/jpeg','image/png','image/webp','image/gif','video/mp4','video/3gpp','video/quicktime'];
-    return valid.indexOf(f.type)>=0 && f.size<=16777216;
+    var mt=mediaTypeOf(f.type);
+    return mt!==null && f.size<=sizeLimitOf(mt);
   });
   if(validos.length===0){showToast('NINGÚN ARCHIVO VÁLIDO','error');return;}
   cerrarModal();
@@ -199,8 +216,10 @@ async function enviarMultiples(files){
       var upR=await apiFetch('/wa/upload?phone='+encodeURIComponent(mediaActivePhone),{method:'POST',body:fd,credentials:'include'});
       if(!upR.ok)continue;
       var upD=await upR.json();var mediaId=upD.id;
-      var mt=file.type.startsWith('image/')?'image':'video';
-      var sendR=await apiFetch('/wa/media',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({to:mediaActivePhone,type:mt,media_id:mediaId}),credentials:'include'});
+      var mt=mediaTypeOf(file.type);
+      var body={to:mediaActivePhone,type:mt,media_id:mediaId};
+      if(mt==='document')body.filename=file.name;
+      var sendR=await apiFetch('/wa/media',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body),credentials:'include'});
       if(!sendR.ok)continue;
       // Usar public_url de Supabase Storage (URL permanente) retornada por /wa/upload
       var finalUrl=upD.public_url||URL.createObjectURL(file);
@@ -213,33 +232,41 @@ async function enviarMultiples(files){
 }
 
 function procesarArchivo(file){
-  var valid=['image/jpeg','image/png','image/webp','image/gif','video/mp4','video/3gpp','video/quicktime'];
-  if(valid.indexOf(file.type)<0){showToast('TIPO NO SOPORTADO','error');return;}
-  if(file.size>16777216){showToast('MAX 16MB','error');return;}
+  var mt=mediaTypeOf(file.type);
+  if(mt===null){showToast('TIPO NO SOPORTADO','error');return;}
+  if(file.size>sizeLimitOf(mt)){showToast(mt==='document'?'MAX 5MB':'MAX 16MB','error');return;}
   archivoActual=file;
-  var isImg=file.type.startsWith('image/');
   var thumb=document.getElementById('previewThumb');
   thumb.innerHTML='';
-  if(isImg){
+  if(mt==='image'){
     var imgEl=document.createElement('img');
     imgEl.src=URL.createObjectURL(file);
     imgEl.style.cssText='width:50px;height:50px;object-fit:cover;border-radius:3px;border:2px solid var(--border2)';
     thumb.appendChild(imgEl);
   }else{
-    var vidEl=document.createElement('div');
-    vidEl.style.cssText='width:50px;height:50px;background:var(--bg3);border-radius:3px;border:2px solid var(--border2);display:flex;align-items:center;justify-content:center;font-size:14px';
-    vidEl.textContent='VIDEO';
-    thumb.appendChild(vidEl);
+    var iconEl=document.createElement('div');
+    iconEl.style.cssText='width:50px;height:50px;background:var(--bg3);border-radius:3px;border:2px solid var(--border2);display:flex;align-items:center;justify-content:center;font-size:14px';
+    iconEl.textContent=mt==='document'?'PDF':'VIDEO';
+    thumb.appendChild(iconEl);
   }
   document.getElementById('previewName').textContent=file.name;
   var sz=file.size<1048576?(file.size/1024).toFixed(1)+' KB':(file.size/1048576).toFixed(1)+' MB';
   document.getElementById('previewSize').textContent=sz;
   document.getElementById('mediaPreview').style.display='block';
+  var filenameRow=document.getElementById('filenameRow');
+  if(mt==='document'){
+    document.getElementById('filenameInput').value=nombreBoletaDefault();
+    filenameRow.style.display='block';
+  }else{
+    filenameRow.style.display='none';
+  }
   document.getElementById('btnSendMedia').disabled=false;
 }
 function limpiarArchivo(){
   archivoActual=null;document.getElementById('fileInput').value='';
   document.getElementById('mediaPreview').style.display='none';
+  document.getElementById('filenameRow').style.display='none';
+  document.getElementById('filenameInput').value='';
   document.getElementById('uploadProgress').style.display='none';
   document.getElementById('captionInput').value='';
   document.getElementById('btnSendMedia').disabled=true;
@@ -259,8 +286,13 @@ async function enviarMedia(){
     if(!upR.ok){var eU=await upR.json().catch(function(){return{};});var errorMsg=typeof eU.detail==='string'?eU.detail:eU.detail?.error?.message||JSON.stringify(eU.detail);throw new Error(errorMsg||'Error subida');}
     var upD=await upR.json();
     fill.style.width='65%';label.textContent='ENVIANDO...';
-    var mt=archivoActual.type.startsWith('image/')?'image':'video';
-    var sendR=await apiFetch('/wa/media',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({to:mediaActivePhone,type:mt,media_id:upD.id,caption:caption||undefined}),credentials:'include'});
+    var mt=mediaTypeOf(archivoActual.type);
+    var sendBody={to:mediaActivePhone,type:mt,media_id:upD.id,caption:caption||undefined};
+    if(mt==='document'){
+      var filename=document.getElementById('filenameInput').value.trim();
+      sendBody.filename=filename||nombreBoletaDefault();
+    }
+    var sendR=await apiFetch('/wa/media',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(sendBody),credentials:'include'});
     if(!sendR.ok){var eS=await sendR.json().catch(function(){return{};});var errorMsg2=typeof eS.detail==='string'?eS.detail:eS.detail?.error?.message||JSON.stringify(eS.detail);throw new Error(errorMsg2||'Error envio');}
     fill.style.width='90%';
     // Usar public_url de Supabase Storage (URL permanente) en vez de blob temporal
@@ -973,7 +1005,7 @@ function InboxView({isMobile,showSidebar,setShowSidebar}){
             </div>}
             <div style={{padding:'10px 12px',paddingBottom:'calc(10px + var(--safe-b))',background:'var(--card)',borderTop:'2px solid var(--text)',boxShadow:'0 -3px 0 var(--border)',flexShrink:0}}>
               <div style={{display:'flex',gap:8,alignItems:'flex-end'}}>
-                <button className="btn-media" onClick={()=>abrirModal(activePhone,activeMode)} disabled={activeMode!=='humano'} title="Enviar foto o video">&#128206;</button>
+                <button className="btn-media" onClick={()=>abrirModal(activePhone,activeMode,active&&active.nombre)} disabled={activeMode!=='humano'} title="Enviar foto, video o PDF">&#128206;</button>
                 <div style={{position:'relative'}}>
                   <button
                     className="btn-media"
