@@ -25,7 +25,7 @@ STORAGE_BASE_URL = os.getenv("STORAGE_BASE_URL")
 MAX_SIZE_IMAGE = 5 * 1024 * 1024      # 5MB
 MAX_SIZE_VIDEO = 16 * 1024 * 1024     # 16MB
 MAX_SIZE_AUDIO = 16 * 1024 * 1024     # 16MB
-MAX_SIZE_DOCUMENT = 100 * 1024 * 1024  # 100MB
+MAX_SIZE_DOCUMENT = 5 * 1024 * 1024   # 5MB (Meta permite hasta 100MB, pero para boletas/PDF alcanza de sobra)
 
 # Firmas (magic bytes) de los formatos que este endpoint procesa. Evita confiar
 # solo en el content-type declarado por el cliente, que se puede falsificar.
@@ -65,9 +65,10 @@ class TextPayload(BaseModel):
 
 class MediaPayload(BaseModel):
     to: str
-    type: str          # image | video | audio
+    type: str          # image | video | audio | document
     media_id: str
     caption: Optional[str] = None
+    filename: Optional[str] = None
 
 
 TEMPLATES = {
@@ -453,6 +454,8 @@ async def send_media(payload: MediaPayload):
         media_obj["voice"] = True
     if payload.caption:
         media_obj["caption"] = payload.caption
+    if payload.type == "document" and payload.filename:
+        media_obj["filename"] = payload.filename
     body = {
         "messaging_product": "whatsapp",
         "to": payload.to,
