@@ -586,6 +586,20 @@ function formatearFechaSeparador(fecha){
   return f.getDate()+' de '+meses[f.getMonth()];
 }
 
+var ENTREGA_ICONOS={
+  sent:      {icon:'⏳', label:'Enviado'},
+  delivered: {icon:'✓',  label:'Entregado', color:'var(--text3)'},
+  read:      {icon:'✓✓', label:'Leído',     color:'var(--blue)'},
+  failed:    {icon:'❌', label:'Falló'},
+};
+function entregaInfo(m){
+  if(m.rol==='cliente')return null;
+  var info=ENTREGA_ICONOS[m.estado_entrega];
+  if(!info)return null;
+  var horaEntrega=m.estado_entrega_at?new Date(m.estado_entrega_at).toLocaleTimeString('es-CL',{hour:'2-digit',minute:'2-digit'}):null;
+  return {icon:info.icon,color:info.color||'var(--text3)',tooltip:info.label+(horaEntrega?' a las '+horaEntrega:'')};
+}
+
 function InboxView({isMobile,showSidebar,setShowSidebar}){
   var [clientes,setClientes]=useState([]);
   var readPhonesRef=useRef({});
@@ -938,6 +952,7 @@ function InboxView({isMobile,showSidebar,setShowSidebar}){
                   if(fechaActual.getTime()!==fechaAnterior.getTime())mostrarSeparador=true;
                 }
                 var right=m.rol!=='cliente';
+                var entrega=entregaInfo(m);
                 var bg=m.rol==='cliente'?'var(--card)':m.rol==='agente'?'var(--purple)':'var(--green)';
                 var color=m.rol==='cliente'?'var(--text)':'#fff';
                 var label=m.rol==='cliente'?'CLIENTE':m.rol==='agente'?'AGENTE IA':'TU';
@@ -992,7 +1007,10 @@ function InboxView({isMobile,showSidebar,setShowSidebar}){
                     <div style={{display:'flex',flexDirection:'column',alignItems:right?'flex-end':'flex-start',gap:3}}>
                       <span className="pixel" style={{fontSize:6,color:'var(--text3)',padding:'0 4px'}}>{label}</span>
                       <div style={{maxWidth:'74%',padding:'10px 13px',fontSize:14,lineHeight:1.5,borderRadius:4,border:'2px solid '+(m.rol==='cliente'?'var(--text)':bg),background:bg,color,boxShadow:'2px 2px 0 '+(m.rol==='cliente'?'var(--border2)':'rgba(42,31,14,.3)')}}>{contenido}</div>
-                      <span className="mono" style={{fontSize:12,color:'var(--text3)',padding:'0 4px'}}>{hora}</span>
+                      <span className="mono" style={{fontSize:12,color:'var(--text3)',padding:'0 4px',display:'flex',alignItems:'center',gap:4}}>
+                        {hora}
+                        {entrega&&<span title={entrega.tooltip} style={{color:entrega.color,fontSize:12}}>{entrega.icon}</span>}
+                      </span>
                     </div>
                   </React.Fragment>
                 );
