@@ -776,15 +776,17 @@ function InboxView({isMobile,showSidebar,setShowSidebar}){
   async function enviar(){
     if(!draft.trim()||!activePhone||activeMode!=='humano')return;
     var texto=draft.trim();setDraft('');
-    await sb.from('conversaciones').insert({phone:activePhone,rol:'humano',mensaje:texto,leido:true});
     try{
       var endpoint=active.canal==='instagram'?'/instagram/send':'/wa/send';
-      await apiFetch(endpoint,{
+      var r=await apiFetch(endpoint,{
         method:'POST',headers:{'Content-Type':'application/json'},
         body:JSON.stringify({to:activePhone,text:texto}),
         credentials:'include'
       });
-    }catch(e){console.error(e);}
+      if(!r.ok)throw new Error('send failed');
+      var data=await r.json();
+      await sb.from('conversaciones').insert({phone:activePhone,rol:'humano',mensaje:texto,leido:true,message_id:data.message_id});
+    }catch(e){console.error(e);return;}
     await cargarMensajes(activePhone);
   }
 
