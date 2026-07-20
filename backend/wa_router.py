@@ -100,7 +100,9 @@ async def send_text(payload: TextPayload):
         )
     if not r.is_success:
         raise HTTPException(status_code=r.status_code, detail=r.json())
-    return r.json()
+    response_data = r.json()
+    message_id = response_data.get("messages", [{}])[0].get("id")
+    return {"ok": True, "message_id": message_id}
 
 
 @router.post("/template")
