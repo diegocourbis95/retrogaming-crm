@@ -43,3 +43,8 @@ app.add_middleware(
 )
 
 app.include_router(wa_router)
+
+
+@app.get("/health")
+async def health():
+    return {"service": "retrogaming-crm", "status": "ok"}
