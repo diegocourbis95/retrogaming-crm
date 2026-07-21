@@ -961,6 +961,7 @@ function InboxView({isMobile,showSidebar,setShowSidebar}){
                 var hora=new Date(m.created_at).toLocaleTimeString('es-CL',{hour:'2-digit',minute:'2-digit'});
                 var contenido=null;
                 var esAudioTranscrito=m.media_type&&m.media_type.includes('audio')&&m.mensaje&&m.mensaje!=='[AUDIO]'&&m.mensaje!=='[MEDIA]';
+                var esPdf=m.media_type==='application/pdf'||(m.media_url&&m.media_url.toLowerCase().endsWith('.pdf'));
                 if(m.media_url&&m.media_type){
                   if(m.mensaje==='[STICKER]'||m.media_url.endsWith('.webp')){
                     contenido=<img src={m.media_url} style={{maxWidth:150,maxHeight:150,borderRadius:3,display:'block',cursor:'pointer'}} onClick={()=>window.open(m.media_url,'_blank')}/>;
@@ -981,11 +982,20 @@ function InboxView({isMobile,showSidebar,setShowSidebar}){
                       // Audio sin transcripción, solo player
                       contenido=<audio controls style={{width:'100%',minWidth:200,marginTop:2}}><source src={m.media_url} type={m.media_type}/></audio>;
                     }
+                  }else if(esPdf){
+                    var pdfName=(m.media_url.split('/').pop()||'documento.pdf').split('?')[0];
+                    contenido=<div style={{display:'flex',alignItems:'center',gap:10,background:'rgba(0,0,0,0.15)',borderRadius:6,padding:'8px 10px',cursor:'pointer'}} onClick={()=>window.open(m.media_url,'_blank')}>
+                      <div style={{width:36,height:36,borderRadius:4,background:'#e02424',color:'#fff',display:'flex',alignItems:'center',justifyContent:'center',fontSize:10,fontWeight:'bold',flexShrink:0}}>PDF</div>
+                      <div style={{flex:1,minWidth:0}}>
+                        <div style={{fontSize:13,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{pdfName}</div>
+                        <div style={{fontSize:11,color:m.rol==='cliente'?'var(--text3)':'rgba(255,255,255,0.7)'}}>Abrir documento ↗</div>
+                      </div>
+                    </div>;
                   }else{
                     contenido=<video controls playsInline style={{maxWidth:'100%',borderRadius:3,display:'block'}}><source src={m.media_url} type={m.media_type}/></video>;
                   }
-                  // Caption para imágenes/videos (no audio, ya lo manejamos arriba)
-                  if(!m.media_type.startsWith('audio/')&&m.mensaje&&m.mensaje!=='[MEDIA]'&&m.mensaje!=='[AUDIO]'&&m.mensaje!=='[STICKER]')contenido=<>{contenido}<div style={{fontSize:13,marginTop:4}}>{m.mensaje}</div></>;
+                  // Caption para imágenes/videos (no audio ni pdf, ya lo manejamos arriba)
+                  if(!m.media_type.startsWith('audio/')&&!esPdf&&m.mensaje&&m.mensaje!=='[MEDIA]'&&m.mensaje!=='[AUDIO]'&&m.mensaje!=='[STICKER]')contenido=<>{contenido}<div style={{fontSize:13,marginTop:4}}>{m.mensaje}</div></>;
                 }else if(m.mensaje==='[AUDIO]'){
                   contenido=<div style={{fontSize:12,color:'var(--text3)',fontStyle:'italic'}}>🎤 Audio (sin URL guardada)</div>;
                 }else if(m.mensaje==='[IMAGEN]'||m.mensaje==='[IMAGE]'){
