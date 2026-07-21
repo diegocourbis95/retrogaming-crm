@@ -638,7 +638,7 @@ function InboxView({isMobile,showSidebar,setShowSidebar}){
     var list=Object.values(mapa);
     list.sort((a,b)=>new Date((b.conversaciones[0]&&b.conversaciones[0].created_at)||0)-new Date((a.conversaciones[0]&&a.conversaciones[0].created_at)||0));
     var freshPhones=new Set(list.map(function(c){return c.phone;}));
-    if(activePhoneRef.current&&!freshPhones.has(activePhoneRef.current)){setActivePhone(null);setMensajes([]);}
+    if(activePhoneRef.current&&!freshPhones.has(activePhoneRef.current)&&list.length>0){setActivePhone(null);setMensajes([]);}
     setClientes(list);
   },[]);
 
