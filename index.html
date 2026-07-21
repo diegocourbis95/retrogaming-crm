@@ -618,7 +618,7 @@ function InboxView({isMobile,showSidebar,setShowSidebar}){
   var active=clientes.find(function(c){return c.phone===activePhone;});
 
   var cargarClientes=useCallback(async function(){
-    var r2=await sb.from('clientes').select('phone,nombre,modo,archivado');
+    var r2=await sb.from('clientes').select('phone,nombre,modo,archivado').order('created_at',{ascending:false}).limit(2000);
     if(!r2.data)return;
     var mapa={};
     r2.data.forEach(function(c){
