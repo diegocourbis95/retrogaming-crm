@@ -1073,6 +1073,15 @@ function InboxView({isMobile,showSidebar,setShowSidebar,initialPhone,onInitialPh
                 }else if(m.mensaje==='[DOCUMENTO]'||m.mensaje==='[DOCUMENT]'){
                   contenido=<div style={{fontSize:12,color:'var(--text3)',fontStyle:'italic'}}>📄 Documento recibido</div>;
                 }else{contenido=m.mensaje;}
+                var citado=m.context_wamid?mensajes.find(function(x){return x.message_id===m.context_wamid;}):null;
+                var citaBox=citado?(
+                  <div style={{background:'rgba(0,0,0,0.12)',borderLeft:'3px solid '+(m.rol==='cliente'?'var(--text3)':'rgba(255,255,255,0.6)'),borderRadius:4,padding:'6px 8px',marginBottom:6,fontSize:12,opacity:0.85}}>
+                    <div style={{fontWeight:600,fontSize:10,marginBottom:2}}>{citado.rol==='cliente'?'CLIENTE':citado.rol==='agente'?'AGENTE IA':'TU'}</div>
+                    <div style={{whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{citado.media_url?'📎 '+(citado.mensaje||'Archivo'):citado.mensaje}</div>
+                  </div>
+                ):(m.context_wamid?(
+                  <div style={{background:'rgba(0,0,0,0.12)',borderLeft:'3px solid var(--text3)',borderRadius:4,padding:'6px 8px',marginBottom:6,fontSize:11,fontStyle:'italic',opacity:0.7}}>Mensaje citado</div>
+                ):null);
                 return(
                   <React.Fragment key={i}>
                     {mostrarSeparador&&(
@@ -1084,7 +1093,7 @@ function InboxView({isMobile,showSidebar,setShowSidebar,initialPhone,onInitialPh
                     )}
                     <div style={{display:'flex',flexDirection:'column',alignItems:right?'flex-end':'flex-start',gap:3}}>
                       <span className="pixel" style={{fontSize:6,color:'var(--text3)',padding:'0 4px'}}>{label}</span>
-                      <div style={{maxWidth:'74%',padding:'10px 13px',fontSize:14,lineHeight:1.5,borderRadius:4,border:'2px solid '+(m.rol==='cliente'?'var(--text)':bg),background:bg,color,boxShadow:'2px 2px 0 '+(m.rol==='cliente'?'var(--border2)':'rgba(42,31,14,.3)')}}>{contenido}</div>
+                      <div style={{maxWidth:'74%',padding:'10px 13px',fontSize:14,lineHeight:1.5,borderRadius:4,border:'2px solid '+(m.rol==='cliente'?'var(--text)':bg),background:bg,color,boxShadow:'2px 2px 0 '+(m.rol==='cliente'?'var(--border2)':'rgba(42,31,14,.3)')}}>{citaBox}{contenido}</div>
                       <span className="mono" style={{fontSize:12,color:'var(--text3)',padding:'0 4px',display:'flex',alignItems:'center',gap:4}}>
                         {hora}
                         {entrega&&<span title={entrega.tooltip} style={{color:entrega.color,fontSize:12}}>{entrega.icon}</span>}
