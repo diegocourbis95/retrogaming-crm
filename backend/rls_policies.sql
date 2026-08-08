@@ -20,14 +20,15 @@
 -- SELECT tablename, rowsecurity
 -- FROM pg_tables
 -- WHERE schemaname = 'public'
---   AND tablename IN ('conversaciones', 'clientes');
+--   AND tablename IN ('conversaciones', 'clientes', 'seguimientos');
 
 
 -- ----------------------------------------------------------------
--- 1. Habilitar RLS en ambas tablas
+-- 1. Habilitar RLS en las tablas
 -- ----------------------------------------------------------------
 ALTER TABLE public.conversaciones ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.clientes       ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.seguimientos   ENABLE ROW LEVEL SECURITY;
 
 
 -- ----------------------------------------------------------------
@@ -99,6 +100,31 @@ CREATE POLICY "clientes_delete"
 
 
 -- ----------------------------------------------------------------
+-- 3b. Policies — tabla: seguimientos
+-- ----------------------------------------------------------------
+-- Nota: esta tabla nunca tuvo policies para 'authenticated' desde que se creó —
+-- bloqueaba en silencio (0 filas, sin error) tanto la vista de tabla vieja del
+-- CRM como el calendario de la pestaña Seguimientos. Detectado y corregido
+-- 2026-07-29. Sin policy de INSERT/DELETE a propósito: el INSERT lo hace el
+-- backend con service_role (bypassa RLS), y el frontend nunca borra filas acá.
+
+-- SELECT: leer seguimientos pendientes/alertados/cerrados (tabla vieja + calendario)
+CREATE POLICY "seguimientos_select"
+  ON public.seguimientos
+  FOR SELECT
+  TO authenticated
+  USING (true);
+
+-- UPDATE: marcar estado='cerrado' al contactar al cliente (botón "Cerrado ✓")
+CREATE POLICY "seguimientos_update"
+  ON public.seguimientos
+  FOR UPDATE
+  TO authenticated
+  USING (true)
+  WITH CHECK (true);
+
+
+-- ----------------------------------------------------------------
 -- 4. Post-checks: verificar que todo quedó bien
 -- ----------------------------------------------------------------
 -- (Ejecuta esto después para confirmar el resultado)
@@ -106,10 +132,10 @@ CREATE POLICY "clientes_delete"
 -- SELECT tablename, rowsecurity
 -- FROM pg_tables
 -- WHERE schemaname = 'public'
---   AND tablename IN ('conversaciones', 'clientes');
+--   AND tablename IN ('conversaciones', 'clientes', 'seguimientos');
 --
 -- SELECT tablename, policyname, cmd, roles
 -- FROM pg_policies
 -- WHERE schemaname = 'public'
---   AND tablename IN ('conversaciones', 'clientes')
+--   AND tablename IN ('conversaciones', 'clientes', 'seguimientos')
 -- ORDER BY tablename, cmd;

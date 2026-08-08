@@ -496,93 +496,150 @@ function AudioRecorder({phone,mode,n8nWebhookUrl,onSent}){
 }
 
 
-function SeguimientosView(){
-  var [registros,setRegistros]=React.useState([]);
+var MESES_CAL=['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+var DIAS_SEMANA_CAL=['L','M','M','J','V','S','D'];
+
+function SeguimientosView({onAbrirConversacion}){
+  var hoy=new Date();
+  var [mes,setMes]=React.useState({y:hoy.getFullYear(),m:hoy.getMonth()});
+  var [seguimientos,setSeguimientos]=React.useState([]);
+  var [despachos,setDespachos]=React.useState([]);
   var [loading,setLoading]=React.useState(true);
 
+  function pad2(n){return String(n).padStart(2,'0');}
+  function isoUTC(y,m,d){
+    var dt=new Date(Date.UTC(y,m,d));
+    return dt.getUTCFullYear()+'-'+pad2(dt.getUTCMonth()+1)+'-'+pad2(dt.getUTCDate());
+  }
+  function diaLocalSantiago(isoTs){
+    return new Date(isoTs).toLocaleDateString('en-CA',{timeZone:'America/Santiago'});
+  }
+
+  var monthStart=isoUTC(mes.y,mes.m,1);
+  var nextM=mes.m===11?{y:mes.y+1,m:0}:{y:mes.y,m:mes.m+1};
+  var monthEndExcl=isoUTC(nextM.y,nextM.m,1);
+  var padStart=isoUTC(mes.y,mes.m,0);   // un día antes
+  var padEnd=isoUTC(nextM.y,nextM.m,2); // un día después
+
   var cargar=React.useCallback(async function(){
-    var r=await sb.from('seguimientos').select('*').order('fecha_prometida',{ascending:true});
-    setRegistros(r.data||[]);
+    var [rSeg,rDesp]=await Promise.all([
+      sb.from('seguimientos').select('id,telefono,nombre,fecha_prometida,producto_interes,objecion_detectada')
+        .eq('estado','pendiente').gte('fecha_prometida',monthStart).lt('fecha_prometida',monthEndExcl),
+      sb.from('clientes').select('phone,nombre,despacho_confirmado_fecha')
+        .eq('despacho_alerta_enviada',true).not('despacho_confirmado_fecha','is',null)
+        .gte('despacho_confirmado_fecha',padStart).lt('despacho_confirmado_fecha',padEnd),
+    ]);
+    setSeguimientos(rSeg.data||[]);
+    setDespachos(rDesp.data||[]);
     setLoading(false);
-  },[]);
+  },[monthStart,monthEndExcl,padStart,padEnd]);
 
   React.useEffect(function(){
+    setLoading(true);
     cargar();
     var interval=setInterval(cargar,30000);
     return function(){clearInterval(interval);};
   },[cargar]);
 
-  async function cerrar(id){
+  async function marcarCerrado(id){
     await sb.from('seguimientos').update({estado:'cerrado'}).eq('id',id);
-    setRegistros(function(prev){return prev.map(function(s){return s.id===id?Object.assign({},s,{estado:'cerrado'}):s;});});
+    setSeguimientos(function(prev){return prev.filter(function(s){return s.id!==id;});});
     showToast('SEGUIMIENTO CERRADO','success');
   }
 
-  var estadoBadge=function(estado){
-    var cfg={
-      pendiente:{bg:'var(--yellow-bg)',color:'var(--yellow)',border:'var(--yellow)',label:'PENDIENTE'},
-      alertado:{bg:'#FFF0E8',color:'#D4522A',border:'#D4522A',label:'ALERTADO'},
-      cerrado:{bg:'var(--green-bg)',color:'var(--green)',border:'var(--green)',label:'CERRADO'},
-    };
-    var c=cfg[estado]||cfg.pendiente;
+  function mesAnterior(){setMes(function(p){return p.m===0?{y:p.y-1,m:11}:{y:p.y,m:p.m-1};});}
+  function mesSiguiente(){setMes(function(p){return p.m===11?{y:p.y+1,m:0}:{y:p.y,m:p.m+1};});}
+
+  var eventosPorDia=React.useMemo(function(){
+    var mapa={};
+    seguimientos.forEach(function(s){
+      var dia=parseInt(s.fecha_prometida.slice(8,10),10);
+      if(!mapa[dia])mapa[dia]={segs:[],desps:[]};
+      mapa[dia].segs.push(s);
+    });
+    despachos.forEach(function(c){
+      var isoLocal=diaLocalSantiago(c.despacho_confirmado_fecha);
+      if(isoLocal<monthStart||isoLocal>=monthEndExcl)return;
+      var dia=parseInt(isoLocal.slice(8,10),10);
+      if(!mapa[dia])mapa[dia]={segs:[],desps:[]};
+      mapa[dia].desps.push(c);
+    });
+    return mapa;
+  },[seguimientos,despachos,monthStart,monthEndExcl]);
+
+  var diasEnMes=new Date(mes.y,mes.m+1,0).getDate();
+  var primerDiaSemana=new Date(mes.y,mes.m,1).getDay();
+  var offset=(primerDiaSemana+6)%7;
+  var celdas=[];
+  for(var i=0;i<offset;i++)celdas.push(null);
+  for(var d=1;d<=diasEnMes;d++)celdas.push(d);
+
+  function EventChip({ev,tipo}){
+    var isSeg=tipo==='seguimiento';
+    var phone=isSeg?ev.telefono:ev.phone;
+    var color=isSeg?'var(--blue)':'var(--accent)';
+    var bg=isSeg?'var(--blue-bg)':'#FFF0E8';
+    var icon=isSeg?'📞':'📦';
+    var label=(ev.nombre||phone||'').split(' ')[0]||phone;
+    var tooltip=isSeg
+      ?('Seguimiento: '+(ev.objecion_detectada||'sin detalle')+(ev.producto_interes?' — '+ev.producto_interes:''))
+      :('Despacho confirmado: '+(ev.nombre||phone||''));
     return(
-      <span style={{fontFamily:'"Press Start 2P",monospace',fontSize:6,padding:'3px 7px',borderRadius:99,
-        background:c.bg,color:c.color,border:'1.5px solid '+c.border,letterSpacing:.5,whiteSpace:'nowrap'}}>
-        {c.label}
-      </span>
+      <div style={{display:'flex',alignItems:'center',gap:4,marginTop:3}}>
+        <button onClick={function(){onAbrirConversacion&&onAbrirConversacion(phone);}} title={tooltip}
+          style={{flex:1,minWidth:0,display:'flex',alignItems:'center',gap:4,background:bg,color:color,
+            border:'1.5px solid '+color,borderRadius:4,padding:'2px 5px',fontFamily:'JetBrains Mono,monospace',
+            fontSize:10,cursor:'pointer',textAlign:'left',overflow:'hidden'}}>
+          <span style={{flexShrink:0}}>{icon}</span>
+          <span style={{overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{label}</span>
+        </button>
+        {isSeg&&(
+          <button onClick={function(e){e.stopPropagation();marcarCerrado(ev.id);}} title="Marcar contactado"
+            style={{flexShrink:0,width:18,height:18,display:'flex',alignItems:'center',justifyContent:'center',
+              background:'var(--green-bg)',color:'var(--green)',border:'1.5px solid var(--green)',borderRadius:3,
+              cursor:'pointer',fontSize:10,padding:0}}>✓</button>
+        )}
+      </div>
     );
-  };
+  }
 
   return(
     <div style={{display:'flex',flexDirection:'column',flex:1,overflow:'hidden',background:'var(--bg)'}}>
       <div style={{padding:'14px 20px',borderBottom:'1.5px solid var(--border)',background:'var(--card2)',flexShrink:0}}>
         <div className="pixel" style={{fontSize:10,color:'var(--accent)',marginBottom:6}}>SEGUIMIENTOS</div>
-        <div style={{fontFamily:'Inter,sans-serif',fontSize:18,fontWeight:700,color:'var(--text)'}}>Seguimientos activos</div>
-        <div className="mono" style={{fontSize:12,color:'var(--text2)',marginTop:4}}>{registros.filter(function(s){return s.estado!=='cerrado';}).length} pendientes</div>
+        <div style={{fontFamily:'Inter,sans-serif',fontSize:18,fontWeight:700,color:'var(--text)'}}>Calendario de seguimientos y despachos</div>
+        <div className="mono" style={{fontSize:12,color:'var(--text2)',marginTop:4,display:'flex',gap:14,flexWrap:'wrap'}}>
+          <span>📞 {seguimientos.length} seguimientos</span>
+          <span>📦 {despachos.length} despachos</span>
+        </div>
       </div>
       <div className="nice-scroll" style={{flex:1,overflowY:'auto',padding:16}}>
-        {loading&&<div className="mono" style={{fontSize:13,color:'var(--text3)',textAlign:'center',padding:40}}>Cargando...</div>}
-        {!loading&&registros.length===0&&(
-          <div style={{textAlign:'center',padding:40}}>
-            <div style={{fontSize:32,marginBottom:10}}>📅</div>
-            <div className="mono" style={{fontSize:13,color:'var(--text3)'}}>Sin seguimientos registrados</div>
-          </div>
-        )}
-        {!loading&&registros.length>0&&(
-          <div style={{overflowX:'auto'}}>
-            <table style={{width:'100%',borderCollapse:'collapse',fontFamily:'JetBrains Mono,monospace',fontSize:12}}>
-              <thead>
-                <tr style={{background:'var(--card2)',borderBottom:'2px solid var(--text)'}}>
-                  {['Nombre','Teléfono','Objeción','Fecha prometida','Producto','Estado','Acción'].map(function(h){
-                    return<th key={h} style={{padding:'10px 12px',textAlign:'left',fontFamily:'"Press Start 2P",monospace',fontSize:7,color:'var(--text2)',letterSpacing:.5,whiteSpace:'nowrap'}}>{h}</th>;
-                  })}
-                </tr>
-              </thead>
-              <tbody>
-                {registros.map(function(s){
-                  return(
-                    <tr key={s.id} style={{borderBottom:'1px solid var(--border)',background:s.estado==='cerrado'?'var(--green-bg)':s.estado==='alertado'?'#FFF8F4':'var(--card)'}}>
-                      <td style={{padding:'10px 12px',fontWeight:600,color:'var(--text)',maxWidth:150,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{s.nombre||'—'}</td>
-                      <td style={{padding:'10px 12px',color:'var(--text2)'}}>{s.telefono}</td>
-                      <td style={{padding:'10px 12px',color:'var(--text)',maxWidth:200,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}} title={s.objecion_detectada}>{s.objecion_detectada||'—'}</td>
-                      <td style={{padding:'10px 12px',color:'var(--text2)',whiteSpace:'nowrap'}}>{s.fecha_prometida?new Date(s.fecha_prometida+'T12:00:00').toLocaleDateString('es-CL',{day:'2-digit',month:'2-digit',year:'numeric'}):'—'}</td>
-                      <td style={{padding:'10px 12px',color:'var(--text)',whiteSpace:'nowrap'}}>{s.producto_interes||'—'}</td>
-                      <td style={{padding:'10px 12px'}}>{estadoBadge(s.estado)}</td>
-                      <td style={{padding:'10px 12px'}}>
-                        {s.estado!=='cerrado'&&(
-                          <button onClick={function(){cerrar(s.id);}}
-                            style={{fontFamily:'"Press Start 2P",monospace',fontSize:6,padding:'5px 9px',
-                              background:'var(--green-bg)',color:'var(--green)',border:'2px solid var(--green)',
-                              borderRadius:4,cursor:'pointer',boxShadow:'2px 2px 0 var(--green)',whiteSpace:'nowrap'}}>
-                            Cerrado ✓
-                          </button>
-                        )}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+        <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:12}}>
+          <button className="btn btn-ghost" onClick={mesAnterior}>‹ Anterior</button>
+          <div className="pixel" style={{fontSize:9,color:'var(--text)'}}>{MESES_CAL[mes.m].toUpperCase()+' '+mes.y}</div>
+          <button className="btn btn-ghost" onClick={mesSiguiente}>Siguiente ›</button>
+        </div>
+        {loading&&<div className="mono" style={{fontSize:13,color:'var(--text3)',textAlign:'center',padding:20}}>Cargando...</div>}
+        {!loading&&(
+          <div style={{display:'grid',gridTemplateColumns:'repeat(7,1fr)',gap:6}}>
+            {DIAS_SEMANA_CAL.map(function(l,idx){
+              return<div key={'h'+idx} className="pixel" style={{fontSize:8,color:'var(--text3)',textAlign:'center',padding:'4px 0'}}>{l}</div>;
+            })}
+            {celdas.map(function(dia,idx){
+              if(dia===null)return<div key={'b'+idx} style={{background:'var(--bg2)',borderRadius:4,minHeight:74}}/>;
+              var evs=eventosPorDia[dia]||{segs:[],desps:[]};
+              var esHoy=hoy.getFullYear()===mes.y&&hoy.getMonth()===mes.m&&hoy.getDate()===dia;
+              return(
+                <div key={dia} style={{background:'var(--card)',border:'1.5px solid '+(esHoy?'var(--accent)':'var(--border)'),
+                  borderRadius:4,padding:'6px 6px',minHeight:74,display:'flex',flexDirection:'column',overflow:'hidden'}}>
+                  <div className="mono" style={{fontSize:11,fontWeight:esHoy?700:500,color:esHoy?'var(--accent)':'var(--text2)'}}>{dia}</div>
+                  <div className="nice-scroll" style={{flex:1,overflowY:'auto'}}>
+                    {evs.segs.map(function(s){return<EventChip key={'s-'+s.id} ev={s} tipo="seguimiento"/>;})}
+                    {evs.desps.map(function(c){return<EventChip key={'d-'+c.phone} ev={c} tipo="despacho"/>;})}
+                  </div>
+                </div>
+              );
+            })}
           </div>
         )}
       </div>
@@ -614,7 +671,7 @@ function entregaInfo(m){
   return {icon:info.icon,color:info.color||'var(--text3)',tooltip:info.label+(horaEntrega?' a las '+horaEntrega:'')};
 }
 
-function InboxView({isMobile,showSidebar,setShowSidebar}){
+function InboxView({isMobile,showSidebar,setShowSidebar,initialPhone,onInitialPhoneConsumido}){
   var [clientes,setClientes]=useState([]);
   var readPhonesRef=useRef({});
   var [activePhone,setActivePhone]=useState(null);
@@ -753,6 +810,15 @@ function InboxView({isMobile,showSidebar,setShowSidebar}){
     await sb.from('conversaciones').update({leido:true}).eq('phone',phone).eq('rol','cliente');
     await cargarMensajes(phone);
   }
+
+  useEffect(function(){
+    if(!initialPhone)return;
+    var cl=clientes.find(function(c){return c.phone===initialPhone;});
+    if(cl){
+      abrirConv(initialPhone);
+      if(onInitialPhoneConsumido)onInitialPhoneConsumido();
+    }
+  },[initialPhone,clientes]);
 
   async function tomarControl(){
     if(!activePhone)return;
@@ -1021,6 +1087,15 @@ function InboxView({isMobile,showSidebar,setShowSidebar}){
                 }else if(m.mensaje==='[DOCUMENTO]'||m.mensaje==='[DOCUMENT]'){
                   contenido=<div style={{fontSize:12,color:'var(--text3)',fontStyle:'italic'}}>📄 Documento recibido</div>;
                 }else{contenido=m.mensaje;}
+                var citado=m.context_wamid?mensajes.find(function(x){return x.message_id===m.context_wamid;}):null;
+                var citaBox=citado?(
+                  <div style={{background:'rgba(0,0,0,0.12)',borderLeft:'3px solid '+(m.rol==='cliente'?'var(--text3)':'rgba(255,255,255,0.6)'),borderRadius:4,padding:'6px 8px',marginBottom:6,fontSize:12,opacity:0.85}}>
+                    <div style={{fontWeight:600,fontSize:10,marginBottom:2}}>{citado.rol==='cliente'?'CLIENTE':citado.rol==='agente'?'AGENTE IA':'TU'}</div>
+                    <div style={{whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{citado.media_url?'📎 '+(citado.mensaje||'Archivo'):citado.mensaje}</div>
+                  </div>
+                ):(m.context_wamid?(
+                  <div style={{background:'rgba(0,0,0,0.12)',borderLeft:'3px solid var(--text3)',borderRadius:4,padding:'6px 8px',marginBottom:6,fontSize:11,fontStyle:'italic',opacity:0.7}}>Mensaje citado</div>
+                ):null);
                 return(
                   <React.Fragment key={i}>
                     {mostrarSeparador&&(
@@ -1032,7 +1107,7 @@ function InboxView({isMobile,showSidebar,setShowSidebar}){
                     )}
                     <div style={{display:'flex',flexDirection:'column',alignItems:right?'flex-end':'flex-start',gap:3}}>
                       <span className="pixel" style={{fontSize:6,color:'var(--text3)',padding:'0 4px'}}>{label}</span>
-                      <div style={{maxWidth:'74%',padding:'10px 13px',fontSize:14,lineHeight:1.5,borderRadius:4,border:'2px solid '+(m.rol==='cliente'?'var(--text)':bg),background:bg,color,boxShadow:'2px 2px 0 '+(m.rol==='cliente'?'var(--border2)':'rgba(42,31,14,.3)')}}>{contenido}</div>
+                      <div style={{maxWidth:'74%',padding:'10px 13px',fontSize:14,lineHeight:1.5,borderRadius:4,border:'2px solid '+(m.rol==='cliente'?'var(--text)':bg),background:bg,color,boxShadow:'2px 2px 0 '+(m.rol==='cliente'?'var(--border2)':'rgba(42,31,14,.3)')}}>{citaBox}{contenido}</div>
                       <span className="mono" style={{fontSize:12,color:'var(--text3)',padding:'0 4px',display:'flex',alignItems:'center',gap:4}}>
                         {hora}
                         {entrega&&<span title={entrega.tooltip} style={{color:entrega.color,fontSize:12}}>{entrega.icon}</span>}
@@ -1288,10 +1363,16 @@ function LoginScreen(){
 function App(){
   var [tab,setTab]=useState('inbox');
   var [showSidebar,setShowSidebar]=useState(true);
+  var [openPhone,setOpenPhone]=useState(null);
   var isMobile=window.innerWidth<=640;
 
   function cerrarSesion(){
     sb.auth.signOut().then(function(){window.location.reload();});
+  }
+
+  function abrirEnInbox(phone){
+    setOpenPhone(phone);
+    setTab('inbox');
   }
 
   return(
@@ -1321,9 +1402,9 @@ function App(){
         </div>
       </div>
       <div style={{flex:1,overflow:'hidden',display:'flex',position:'relative'}}>
-        {tab==='inbox'&&<InboxView isMobile={isMobile} showSidebar={showSidebar} setShowSidebar={setShowSidebar}/>}
+        {tab==='inbox'&&<InboxView isMobile={isMobile} showSidebar={showSidebar} setShowSidebar={setShowSidebar} initialPhone={openPhone} onInitialPhoneConsumido={function(){setOpenPhone(null);}}/>}
         {tab==='pipeline'&&<PipelineView/>}
-        {tab==='seguimientos'&&<SeguimientosView/>}
+        {tab==='seguimientos'&&<SeguimientosView onAbrirConversacion={abrirEnInbox}/>}
       </div>
     </>
   );
