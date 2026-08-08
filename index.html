@@ -135,6 +135,20 @@ const SUPABASE_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSI
 const API_URL='https://api.retrogaming.cl';
 const sb=supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
 
+async function fetchTodo(tabla,selectStr,orderCol,ascending){
+  var todos=[];
+  var pagina=0;
+  var pageSize=1000;
+  while(true){
+    var r=await sb.from(tabla).select(selectStr).order(orderCol,{ascending:ascending}).range(pagina*pageSize,(pagina+1)*pageSize-1);
+    if(r.error)return null;
+    todos=todos.concat(r.data);
+    if(r.data.length<pageSize)break;
+    pagina++;
+  }
+  return todos;
+}
+
 function showToast(msg,type,dur){type=type||'info';dur=dur||3000;var t=document.getElementById('toast');t.textContent=msg;t.className='toast '+type+' show';setTimeout(function(){t.classList.remove('show');},dur);}
 
 var SESSION_AUTH_KEY='cf_access_last_auth';
@@ -618,10 +632,10 @@ function InboxView({isMobile,showSidebar,setShowSidebar}){
   var active=clientes.find(function(c){return c.phone===activePhone;});
 
   var cargarClientes=useCallback(async function(){
-    var r2=await sb.from('clientes').select('phone,nombre,modo,archivado').order('created_at',{ascending:false}).limit(2000);
-    if(!r2.data)return;
+    var clientesData=await fetchTodo('clientes','phone,nombre,modo,archivado','created_at',false);
+    if(!clientesData)return;
     var mapa={};
-    r2.data.forEach(function(c){
+    clientesData.forEach(function(c){
       if(c.archivado)return;
       mapa[c.phone]={phone:c.phone,nombre:c.nombre,modo:c.modo||'agente',canal:'whatsapp',conversaciones:[],noLeidos:0};
     });
@@ -1092,8 +1106,8 @@ function PipelineView(){
   var [showArchived,setShowArchived]=useState(false);
 
   var cargar=useCallback(async function(){
-    var r=await sb.from('clientes').select('phone,nombre,modo,consola_interes,color_interes,created_at,etapa,archivado').order('created_at',{ascending:false});
-    setClientes(r.data||[]);setLoading(false);
+    var data=await fetchTodo('clientes','phone,nombre,modo,consola_interes,color_interes,created_at,etapa,archivado','created_at',false);
+    setClientes(data||[]);setLoading(false);
   },[]);
 
   async function archivar(phone){
