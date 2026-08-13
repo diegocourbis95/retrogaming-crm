@@ -149,6 +149,20 @@ async function fetchTodo(tabla,selectStr,orderCol,ascending){
   return todos;
 }
 
+async function fetchTodoRpc(fn){
+  var todos=[];
+  var pagina=0;
+  var pageSize=1000;
+  while(true){
+    var r=await sb.rpc(fn,{},{get:true}).range(pagina*pageSize,(pagina+1)*pageSize-1);
+    if(r.error)return null;
+    todos=todos.concat(r.data);
+    if(r.data.length<pageSize)break;
+    pagina++;
+  }
+  return todos;
+}
+
 function showToast(msg,type,dur){type=type||'info';dur=dur||3000;var t=document.getElementById('toast');t.textContent=msg;t.className='toast '+type+' show';setTimeout(function(){t.classList.remove('show');},dur);}
 
 var SESSION_AUTH_KEY='cf_access_last_auth';
@@ -235,9 +249,11 @@ async function enviarMultiples(files){
       if(mt==='document')body.filename=file.name;
       var sendR=await apiFetch('/wa/media',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body),credentials:'include'});
       if(!sendR.ok)continue;
+      var sendD=await sendR.json().catch(function(){return{};});
+      var msgId=sendD.messages&&sendD.messages[0]&&sendD.messages[0].id||null;
       // Usar public_url de Supabase Storage (URL permanente) retornada por /wa/upload
       var finalUrl=upD.public_url||URL.createObjectURL(file);
-      await sb.from('conversaciones').insert({phone:mediaActivePhone,rol:'humano',mensaje:'[MEDIA]',media_url:finalUrl,media_type:file.type,leido:true});
+      await sb.from('conversaciones').insert({phone:mediaActivePhone,rol:'humano',mensaje:'[MEDIA]',media_url:finalUrl,media_type:file.type,leido:true,message_id:msgId});
       ok++;
     }catch(e){console.error(e);}
   }
@@ -308,10 +324,12 @@ async function enviarMedia(){
     }
     var sendR=await apiFetch('/wa/media',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(sendBody),credentials:'include'});
     if(!sendR.ok){var eS=await sendR.json().catch(function(){return{};});var errorMsg2=typeof eS.detail==='string'?eS.detail:eS.detail?.error?.message||JSON.stringify(eS.detail);throw new Error(errorMsg2||'Error envio');}
+    var sendD=await sendR.json().catch(function(){return{};});
+    var msgId=sendD.messages&&sendD.messages[0]&&sendD.messages[0].id||null;
     fill.style.width='90%';
     // Usar public_url de Supabase Storage (URL permanente) en vez de blob temporal
     var finalMediaUrl=upD.public_url||URL.createObjectURL(archivoActual);
-    await sb.from('conversaciones').insert({phone:mediaActivePhone,rol:'humano',mensaje:caption||'[MEDIA]',media_url:finalMediaUrl,media_type:archivoActual.type,leido:true});
+    await sb.from('conversaciones').insert({phone:mediaActivePhone,rol:'humano',mensaje:caption||'[MEDIA]',media_url:finalMediaUrl,media_type:archivoActual.type,leido:true,message_id:msgId});
     fill.style.width='100%';label.textContent='LISTO';
     showToast('MEDIA ENVIADA','success');
     setTimeout(cerrarModal,700);
@@ -411,7 +429,9 @@ function AudioRecorder({phone,mode,n8nWebhookUrl,onSent}){
     var sendR=await apiFetch('/wa/media',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(sendBody),credentials:'include'});
     console.log('[Audio] send status:',sendR.status);
     if(!sendR.ok){var e2=await sendR.json().catch(function(){return{};});console.error('[Audio] send error:',e2);throw new Error('WhatsApp send: '+(e2&&e2.detail||e2&&e2.error&&e2.error.message||sendR.status));}
-    console.log('[Audio] send ok:',await sendR.json().catch(function(){return{};}));
+    var sendD=await sendR.json().catch(function(){return{};});
+    console.log('[Audio] send ok:',sendD);
+    return sendD.messages&&sendD.messages[0]&&sendD.messages[0].id||null;
   }
 
   async function notifyN8n(publicUrl){
@@ -424,8 +444,8 @@ function AudioRecorder({phone,mode,n8nWebhookUrl,onSent}){
     }catch(e){console.warn('[AudioRecorder] n8n webhook error:',e.message);}
   }
 
-  async function saveToDb(publicUrl){
-    var ins=await sb.from('conversaciones').insert({phone:phone,rol:'humano',mensaje:'[AUDIO]',media_url:publicUrl,media_type:'audio/ogg',leido:true});
+  async function saveToDb(publicUrl,msgId){
+    var ins=await sb.from('conversaciones').insert({phone:phone,rol:'humano',mensaje:'[AUDIO]',media_url:publicUrl,media_type:'audio/ogg',leido:true,message_id:msgId});
     if(ins.error)throw new Error('Supabase: '+ins.error.message);
   }
 
@@ -435,11 +455,11 @@ function AudioRecorder({phone,mode,n8nWebhookUrl,onSent}){
       setStep('uploading');
       var publicUrl=await uploadToStorage(blob);
       setStep('sending_wa');
-      await sendViaWhatsApp(blob);
+      var msgId=await sendViaWhatsApp(blob);
       setStep('notifying');
       await notifyN8n(publicUrl);
       setStep('saving');
-      await saveToDb(publicUrl);
+      await saveToDb(publicUrl,msgId);
       setStep('idle');
       showToast('AUDIO ENVIADO','success');
       if(onSent)onSent();else if(window.__crm_refresh)window.__crm_refresh();
@@ -696,11 +716,11 @@ function InboxView({isMobile,showSidebar,setShowSidebar,initialPhone,onInitialPh
       if(c.archivado)return;
       mapa[c.phone]={phone:c.phone,nombre:c.nombre,modo:c.modo||'agente',canal:'whatsapp',conversaciones:[],noLeidos:0};
     });
-    var [rUlt,rNoLeidos]=await Promise.all([
-      sb.rpc('ultimo_mensaje_por_telefono'),
+    var [rUltData,rNoLeidos]=await Promise.all([
+      fetchTodoRpc('ultimo_mensaje_por_telefono'),
       sb.from('conversaciones').select('phone').eq('rol','cliente').eq('leido',false)
     ]);
-    if(rUlt.data)rUlt.data.forEach(function(msg){
+    if(rUltData)rUltData.forEach(function(msg){
       if(mapa[msg.phone]){mapa[msg.phone].conversaciones=[msg];mapa[msg.phone].canal=msg.canal||'whatsapp';}
     });
     if(rNoLeidos.data)rNoLeidos.data.forEach(function(row){
@@ -787,19 +807,27 @@ function InboxView({isMobile,showSidebar,setShowSidebar,initialPhone,onInitialPh
     isAtBottomRef.current=true;
   }
 
-  var filtrados=clientes.filter(function(c){
-    if(search){
-      var q=search.toLowerCase();
-      var matchNombre=(c.nombre||'').toLowerCase().includes(q);
-      var matchPhone=(c.phone||'').includes(search);
-      if(!matchNombre&&!matchPhone)return false;
-    }
-    if(filter==='unread')return!readPhonesRef.current[c.phone]&&(c.noLeidos||0)>0;
-    if(filter==='human')return c.modo==='humano';
-    if(filter==='bot')return c.modo==='agente';
-    if(filter==='instagram')return c.canal==='instagram';
-    return true;
-  });
+  var filtrados=React.useMemo(function(){
+    return clientes.filter(function(c){
+      if(search){
+        var q=search.toLowerCase();
+        var matchNombre=(c.nombre||'').toLowerCase().includes(q);
+        var matchPhone=(c.phone||'').includes(search);
+        if(!matchNombre&&!matchPhone)return false;
+      }
+      if(filter==='unread')return!readPhonesRef.current[c.phone]&&(c.noLeidos||0)>0;
+      if(filter==='human')return c.modo==='humano';
+      if(filter==='bot')return c.modo==='agente';
+      if(filter==='instagram')return c.canal==='instagram';
+      return true;
+    });
+  },[clientes,search,filter]);
+
+  var mensajesPorId=React.useMemo(function(){
+    var map=new Map();
+    mensajes.forEach(function(m){if(m.message_id)map.set(m.message_id,m);});
+    return map;
+  },[mensajes]);
 
   async function abrirConv(phone){
     var cl=clientes.find(function(c){return c.phone===phone;});
@@ -1087,11 +1115,30 @@ function InboxView({isMobile,showSidebar,setShowSidebar,initialPhone,onInitialPh
                 }else if(m.mensaje==='[DOCUMENTO]'||m.mensaje==='[DOCUMENT]'){
                   contenido=<div style={{fontSize:12,color:'var(--text3)',fontStyle:'italic'}}>📄 Documento recibido</div>;
                 }else{contenido=m.mensaje;}
-                var citado=m.context_wamid?mensajes.find(function(x){return x.message_id===m.context_wamid;}):null;
+                var citado=m.context_wamid?mensajesPorId.get(m.context_wamid):null;
                 var citaBox=citado?(
                   <div style={{background:'rgba(0,0,0,0.12)',borderLeft:'3px solid '+(m.rol==='cliente'?'var(--text3)':'rgba(255,255,255,0.6)'),borderRadius:4,padding:'6px 8px',marginBottom:6,fontSize:12,opacity:0.85}}>
                     <div style={{fontWeight:600,fontSize:10,marginBottom:2}}>{citado.rol==='cliente'?'CLIENTE':citado.rol==='agente'?'AGENTE IA':'TU'}</div>
-                    <div style={{whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{citado.media_url?'📎 '+(citado.mensaje||'Archivo'):citado.mensaje}</div>
+                    {citado.media_url&&citado.media_type&&citado.media_type.startsWith('image/')?(
+                      <div style={{display:'flex',alignItems:'center',gap:6}}>
+                        <img src={citado.media_url} style={{width:36,height:36,objectFit:'cover',borderRadius:3,flexShrink:0}}/>
+                        <span style={{whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{citado.mensaje&&citado.mensaje!=='[MEDIA]'?citado.mensaje:'Foto'}</span>
+                      </div>
+                    ):citado.media_url&&citado.media_type&&citado.media_type.startsWith('video/')?(
+                      <div style={{display:'flex',alignItems:'center',gap:6}}>
+                        <span>🎥</span><span style={{whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{citado.mensaje&&citado.mensaje!=='[MEDIA]'?citado.mensaje:'Video'}</span>
+                      </div>
+                    ):citado.media_url&&citado.media_type==='application/pdf'?(
+                      <div style={{display:'flex',alignItems:'center',gap:6}}>
+                        <span>📄</span><span style={{whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{(citado.media_url.split('/').pop()||'documento.pdf').split('?')[0]}</span>
+                      </div>
+                    ):citado.media_url&&citado.media_type&&citado.media_type.startsWith('audio/')?(
+                      <div style={{display:'flex',alignItems:'center',gap:6}}>
+                        <span>🎤</span><span style={{whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>Audio</span>
+                      </div>
+                    ):(
+                      <div style={{whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{citado.media_url?'📎 '+(citado.mensaje||'Archivo'):citado.mensaje}</div>
+                    )}
                   </div>
                 ):(m.context_wamid?(
                   <div style={{background:'rgba(0,0,0,0.12)',borderLeft:'3px solid var(--text3)',borderRadius:4,padding:'6px 8px',marginBottom:6,fontSize:11,fontStyle:'italic',opacity:0.7}}>Mensaje citado</div>
