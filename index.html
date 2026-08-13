@@ -691,6 +691,116 @@ function entregaInfo(m){
   return {icon:info.icon,color:info.color||'var(--text3)',tooltip:info.label+(horaEntrega?' a las '+horaEntrega:'')};
 }
 
+var MessageBubble=React.memo(function MessageBubble({m,mensajeAnterior,citado}){
+  var fechaActual=new Date(m.created_at);fechaActual.setHours(0,0,0,0);
+  var mostrarSeparador=false;
+  if(!mensajeAnterior){mostrarSeparador=true;}
+  else{
+    var fechaAnterior=new Date(mensajeAnterior.created_at);fechaAnterior.setHours(0,0,0,0);
+    if(fechaActual.getTime()!==fechaAnterior.getTime())mostrarSeparador=true;
+  }
+  var right=m.rol!=='cliente';
+  var entrega=entregaInfo(m);
+  var bg=m.rol==='cliente'?'var(--card)':m.rol==='agente'?'var(--purple)':'var(--green)';
+  var color=m.rol==='cliente'?'var(--text)':'#fff';
+  var label=m.rol==='cliente'?'CLIENTE':m.rol==='agente'?'AGENTE IA':'TU';
+  var hora=new Date(m.created_at).toLocaleTimeString('es-CL',{hour:'2-digit',minute:'2-digit'});
+  var contenido=null;
+  var esAudioTranscrito=m.media_type&&m.media_type.includes('audio')&&m.mensaje&&m.mensaje!=='[AUDIO]'&&m.mensaje!=='[MEDIA]';
+  var esPdf=m.media_type==='application/pdf'||(m.media_url&&m.media_url.toLowerCase().endsWith('.pdf'));
+  if(m.media_url&&m.media_type){
+    if(m.mensaje==='[STICKER]'||m.media_url.endsWith('.webp')){
+      contenido=<img src={m.media_url} style={{maxWidth:150,maxHeight:150,borderRadius:3,display:'block',cursor:'pointer'}} onClick={()=>window.open(m.media_url,'_blank')}/>;
+    }else if(m.media_type.startsWith('image/')){
+      contenido=<img src={m.media_url} style={{maxWidth:'100%',maxHeight:200,borderRadius:3,display:'block',cursor:'pointer'}} onClick={()=>window.open(m.media_url,'_blank')}/>;
+    }else if(m.media_type.startsWith('audio/')){
+      // Audio transcrito: mostrar ícono 🎤 + texto + player
+      if(esAudioTranscrito){
+        contenido=<>
+          <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:6}}>
+            <span style={{fontSize:16}}>🎤</span>
+            <span style={{fontSize:11,color:m.rol==='cliente'?'var(--text3)':'rgba(255,255,255,0.7)',fontStyle:'italic'}}>Audio transcrito</span>
+          </div>
+          <div style={{fontSize:14,marginBottom:8,lineHeight:1.5}}>{m.mensaje}</div>
+          <audio controls style={{width:'100%',minWidth:200}}><source src={m.media_url} type={m.media_type}/></audio>
+        </>;
+      }else{
+        // Audio sin transcripción, solo player
+        contenido=<audio controls style={{width:'100%',minWidth:200,marginTop:2}}><source src={m.media_url} type={m.media_type}/></audio>;
+      }
+    }else if(esPdf){
+      var pdfName=(m.media_url.split('/').pop()||'documento.pdf').split('?')[0];
+      contenido=<div style={{display:'flex',alignItems:'center',gap:10,background:'rgba(0,0,0,0.15)',borderRadius:6,padding:'8px 10px',cursor:'pointer'}} onClick={()=>window.open(m.media_url,'_blank')}>
+        <div style={{width:36,height:36,borderRadius:4,background:'#e02424',color:'#fff',display:'flex',alignItems:'center',justifyContent:'center',fontSize:10,fontWeight:'bold',flexShrink:0}}>PDF</div>
+        <div style={{flex:1,minWidth:0}}>
+          <div style={{fontSize:13,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{pdfName}</div>
+          <div style={{fontSize:11,color:m.rol==='cliente'?'var(--text3)':'rgba(255,255,255,0.7)'}}>Abrir documento ↗</div>
+        </div>
+      </div>;
+    }else{
+      contenido=<video controls playsInline style={{maxWidth:'100%',borderRadius:3,display:'block'}}><source src={m.media_url} type={m.media_type}/></video>;
+    }
+    // Caption para imágenes/videos (no audio ni pdf, ya lo manejamos arriba)
+    if(!m.media_type.startsWith('audio/')&&!esPdf&&m.mensaje&&m.mensaje!=='[MEDIA]'&&m.mensaje!=='[AUDIO]'&&m.mensaje!=='[STICKER]')contenido=<>{contenido}<div style={{fontSize:13,marginTop:4}}>{m.mensaje}</div></>;
+  }else if(m.mensaje==='[AUDIO]'){
+    contenido=<div style={{fontSize:12,color:'var(--text3)',fontStyle:'italic'}}>🎤 Audio (sin URL guardada)</div>;
+  }else if(m.mensaje==='[IMAGEN]'||m.mensaje==='[IMAGE]'){
+    contenido=<div style={{fontSize:12,color:'var(--text3)',fontStyle:'italic'}}>📷 Imagen recibida (sin previsualización)</div>;
+  }else if(m.mensaje==='[VIDEO]'){
+    contenido=<div style={{fontSize:12,color:'var(--text3)',fontStyle:'italic'}}>🎥 Video recibido (sin previsualización)</div>;
+  }else if(m.mensaje==='[STICKER]'){
+    contenido=<div style={{fontSize:12,color:'var(--text3)',fontStyle:'italic'}}>🎭 Sticker</div>;
+  }else if(m.mensaje==='[DOCUMENTO]'||m.mensaje==='[DOCUMENT]'){
+    contenido=<div style={{fontSize:12,color:'var(--text3)',fontStyle:'italic'}}>📄 Documento recibido</div>;
+  }else{contenido=m.mensaje;}
+  var citaBox=citado?(
+    <div style={{background:'rgba(0,0,0,0.12)',borderLeft:'3px solid '+(m.rol==='cliente'?'var(--text3)':'rgba(255,255,255,0.6)'),borderRadius:4,padding:'6px 8px',marginBottom:6,fontSize:12,opacity:0.85}}>
+      <div style={{fontWeight:600,fontSize:10,marginBottom:2}}>{citado.rol==='cliente'?'CLIENTE':citado.rol==='agente'?'AGENTE IA':'TU'}</div>
+      {citado.media_url&&citado.media_type&&citado.media_type.startsWith('image/')?(
+        <div style={{display:'flex',alignItems:'center',gap:6}}>
+          <img src={citado.media_url} style={{width:36,height:36,objectFit:'cover',borderRadius:3,flexShrink:0}}/>
+          <span style={{whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{citado.mensaje&&citado.mensaje!=='[MEDIA]'?citado.mensaje:'Foto'}</span>
+        </div>
+      ):citado.media_url&&citado.media_type&&citado.media_type.startsWith('video/')?(
+        <div style={{display:'flex',alignItems:'center',gap:6}}>
+          <span>🎥</span><span style={{whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{citado.mensaje&&citado.mensaje!=='[MEDIA]'?citado.mensaje:'Video'}</span>
+        </div>
+      ):citado.media_url&&citado.media_type==='application/pdf'?(
+        <div style={{display:'flex',alignItems:'center',gap:6}}>
+          <span>📄</span><span style={{whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{(citado.media_url.split('/').pop()||'documento.pdf').split('?')[0]}</span>
+        </div>
+      ):citado.media_url&&citado.media_type&&citado.media_type.startsWith('audio/')?(
+        <div style={{display:'flex',alignItems:'center',gap:6}}>
+          <span>🎤</span><span style={{whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>Audio</span>
+        </div>
+      ):(
+        <div style={{whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{citado.media_url?'📎 '+(citado.mensaje||'Archivo'):citado.mensaje}</div>
+      )}
+    </div>
+  ):(m.context_wamid?(
+    <div style={{background:'rgba(0,0,0,0.12)',borderLeft:'3px solid var(--text3)',borderRadius:4,padding:'6px 8px',marginBottom:6,fontSize:11,fontStyle:'italic',opacity:0.7}}>Mensaje citado</div>
+  ):null);
+  return(
+    <React.Fragment>
+      {mostrarSeparador&&(
+        <div style={{display:'flex',alignItems:'center',gap:10,margin:'16px 0'}}>
+          <div style={{flex:1,height:1,background:'var(--border)'}}/>
+          <span className="pixel" style={{fontSize:6,color:'var(--text3)',padding:'0 8px',letterSpacing:1}}>{formatearFechaSeparador(m.created_at)}</span>
+          <div style={{flex:1,height:1,background:'var(--border)'}}/>
+        </div>
+      )}
+      <div style={{display:'flex',flexDirection:'column',alignItems:right?'flex-end':'flex-start',gap:3}}>
+        <span className="pixel" style={{fontSize:6,color:'var(--text3)',padding:'0 4px'}}>{label}</span>
+        <div style={{maxWidth:'74%',padding:'10px 13px',fontSize:14,lineHeight:1.5,borderRadius:4,border:'2px solid '+(m.rol==='cliente'?'var(--text)':bg),background:bg,color,boxShadow:'2px 2px 0 '+(m.rol==='cliente'?'var(--border2)':'rgba(42,31,14,.3)')}}>{citaBox}{contenido}</div>
+        <span className="mono" style={{fontSize:12,color:'var(--text3)',padding:'0 4px',display:'flex',alignItems:'center',gap:4}}>
+          {hora}
+          {entrega&&<span title={entrega.tooltip} style={{color:entrega.color,fontSize:12}}>{entrega.icon}</span>}
+        </span>
+      </div>
+    </React.Fragment>
+  );
+});
+
 function InboxView({isMobile,showSidebar,setShowSidebar,initialPhone,onInitialPhoneConsumido}){
   var [clientes,setClientes]=useState([]);
   var readPhonesRef=useRef({});
@@ -1054,114 +1164,8 @@ function InboxView({isMobile,showSidebar,setShowSidebar,initialPhone,onInitialPh
             )}
             <div ref={msgsRef} onScroll={handleMsgsScroll} className="nice-scroll" style={{flex:1,overflowY:'auto',padding:16,display:'flex',flexDirection:'column',gap:12,minHeight:0,position:'relative'}}>
               {mensajes.map((m,i)=>{
-                var fechaActual=new Date(m.created_at);fechaActual.setHours(0,0,0,0);
-                var mostrarSeparador=false;
-                if(i===0){mostrarSeparador=true;}
-                else{
-                  var fechaAnterior=new Date(mensajes[i-1].created_at);fechaAnterior.setHours(0,0,0,0);
-                  if(fechaActual.getTime()!==fechaAnterior.getTime())mostrarSeparador=true;
-                }
-                var right=m.rol!=='cliente';
-                var entrega=entregaInfo(m);
-                var bg=m.rol==='cliente'?'var(--card)':m.rol==='agente'?'var(--purple)':'var(--green)';
-                var color=m.rol==='cliente'?'var(--text)':'#fff';
-                var label=m.rol==='cliente'?'CLIENTE':m.rol==='agente'?'AGENTE IA':'TU';
-                var hora=new Date(m.created_at).toLocaleTimeString('es-CL',{hour:'2-digit',minute:'2-digit'});
-                var contenido=null;
-                var esAudioTranscrito=m.media_type&&m.media_type.includes('audio')&&m.mensaje&&m.mensaje!=='[AUDIO]'&&m.mensaje!=='[MEDIA]';
-                var esPdf=m.media_type==='application/pdf'||(m.media_url&&m.media_url.toLowerCase().endsWith('.pdf'));
-                if(m.media_url&&m.media_type){
-                  if(m.mensaje==='[STICKER]'||m.media_url.endsWith('.webp')){
-                    contenido=<img src={m.media_url} style={{maxWidth:150,maxHeight:150,borderRadius:3,display:'block',cursor:'pointer'}} onClick={()=>window.open(m.media_url,'_blank')}/>;
-                  }else if(m.media_type.startsWith('image/')){
-                    contenido=<img src={m.media_url} style={{maxWidth:'100%',maxHeight:200,borderRadius:3,display:'block',cursor:'pointer'}} onClick={()=>window.open(m.media_url,'_blank')}/>;
-                  }else if(m.media_type.startsWith('audio/')){
-                    // Audio transcrito: mostrar ícono 🎤 + texto + player
-                    if(esAudioTranscrito){
-                      contenido=<>
-                        <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:6}}>
-                          <span style={{fontSize:16}}>🎤</span>
-                          <span style={{fontSize:11,color:m.rol==='cliente'?'var(--text3)':'rgba(255,255,255,0.7)',fontStyle:'italic'}}>Audio transcrito</span>
-                        </div>
-                        <div style={{fontSize:14,marginBottom:8,lineHeight:1.5}}>{m.mensaje}</div>
-                        <audio controls style={{width:'100%',minWidth:200}}><source src={m.media_url} type={m.media_type}/></audio>
-                      </>;
-                    }else{
-                      // Audio sin transcripción, solo player
-                      contenido=<audio controls style={{width:'100%',minWidth:200,marginTop:2}}><source src={m.media_url} type={m.media_type}/></audio>;
-                    }
-                  }else if(esPdf){
-                    var pdfName=(m.media_url.split('/').pop()||'documento.pdf').split('?')[0];
-                    contenido=<div style={{display:'flex',alignItems:'center',gap:10,background:'rgba(0,0,0,0.15)',borderRadius:6,padding:'8px 10px',cursor:'pointer'}} onClick={()=>window.open(m.media_url,'_blank')}>
-                      <div style={{width:36,height:36,borderRadius:4,background:'#e02424',color:'#fff',display:'flex',alignItems:'center',justifyContent:'center',fontSize:10,fontWeight:'bold',flexShrink:0}}>PDF</div>
-                      <div style={{flex:1,minWidth:0}}>
-                        <div style={{fontSize:13,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{pdfName}</div>
-                        <div style={{fontSize:11,color:m.rol==='cliente'?'var(--text3)':'rgba(255,255,255,0.7)'}}>Abrir documento ↗</div>
-                      </div>
-                    </div>;
-                  }else{
-                    contenido=<video controls playsInline style={{maxWidth:'100%',borderRadius:3,display:'block'}}><source src={m.media_url} type={m.media_type}/></video>;
-                  }
-                  // Caption para imágenes/videos (no audio ni pdf, ya lo manejamos arriba)
-                  if(!m.media_type.startsWith('audio/')&&!esPdf&&m.mensaje&&m.mensaje!=='[MEDIA]'&&m.mensaje!=='[AUDIO]'&&m.mensaje!=='[STICKER]')contenido=<>{contenido}<div style={{fontSize:13,marginTop:4}}>{m.mensaje}</div></>;
-                }else if(m.mensaje==='[AUDIO]'){
-                  contenido=<div style={{fontSize:12,color:'var(--text3)',fontStyle:'italic'}}>🎤 Audio (sin URL guardada)</div>;
-                }else if(m.mensaje==='[IMAGEN]'||m.mensaje==='[IMAGE]'){
-                  contenido=<div style={{fontSize:12,color:'var(--text3)',fontStyle:'italic'}}>📷 Imagen recibida (sin previsualización)</div>;
-                }else if(m.mensaje==='[VIDEO]'){
-                  contenido=<div style={{fontSize:12,color:'var(--text3)',fontStyle:'italic'}}>🎥 Video recibido (sin previsualización)</div>;
-                }else if(m.mensaje==='[STICKER]'){
-                  contenido=<div style={{fontSize:12,color:'var(--text3)',fontStyle:'italic'}}>🎭 Sticker</div>;
-                }else if(m.mensaje==='[DOCUMENTO]'||m.mensaje==='[DOCUMENT]'){
-                  contenido=<div style={{fontSize:12,color:'var(--text3)',fontStyle:'italic'}}>📄 Documento recibido</div>;
-                }else{contenido=m.mensaje;}
                 var citado=m.context_wamid?mensajesPorId.get(m.context_wamid):null;
-                var citaBox=citado?(
-                  <div style={{background:'rgba(0,0,0,0.12)',borderLeft:'3px solid '+(m.rol==='cliente'?'var(--text3)':'rgba(255,255,255,0.6)'),borderRadius:4,padding:'6px 8px',marginBottom:6,fontSize:12,opacity:0.85}}>
-                    <div style={{fontWeight:600,fontSize:10,marginBottom:2}}>{citado.rol==='cliente'?'CLIENTE':citado.rol==='agente'?'AGENTE IA':'TU'}</div>
-                    {citado.media_url&&citado.media_type&&citado.media_type.startsWith('image/')?(
-                      <div style={{display:'flex',alignItems:'center',gap:6}}>
-                        <img src={citado.media_url} style={{width:36,height:36,objectFit:'cover',borderRadius:3,flexShrink:0}}/>
-                        <span style={{whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{citado.mensaje&&citado.mensaje!=='[MEDIA]'?citado.mensaje:'Foto'}</span>
-                      </div>
-                    ):citado.media_url&&citado.media_type&&citado.media_type.startsWith('video/')?(
-                      <div style={{display:'flex',alignItems:'center',gap:6}}>
-                        <span>🎥</span><span style={{whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{citado.mensaje&&citado.mensaje!=='[MEDIA]'?citado.mensaje:'Video'}</span>
-                      </div>
-                    ):citado.media_url&&citado.media_type==='application/pdf'?(
-                      <div style={{display:'flex',alignItems:'center',gap:6}}>
-                        <span>📄</span><span style={{whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{(citado.media_url.split('/').pop()||'documento.pdf').split('?')[0]}</span>
-                      </div>
-                    ):citado.media_url&&citado.media_type&&citado.media_type.startsWith('audio/')?(
-                      <div style={{display:'flex',alignItems:'center',gap:6}}>
-                        <span>🎤</span><span style={{whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>Audio</span>
-                      </div>
-                    ):(
-                      <div style={{whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{citado.media_url?'📎 '+(citado.mensaje||'Archivo'):citado.mensaje}</div>
-                    )}
-                  </div>
-                ):(m.context_wamid?(
-                  <div style={{background:'rgba(0,0,0,0.12)',borderLeft:'3px solid var(--text3)',borderRadius:4,padding:'6px 8px',marginBottom:6,fontSize:11,fontStyle:'italic',opacity:0.7}}>Mensaje citado</div>
-                ):null);
-                return(
-                  <React.Fragment key={i}>
-                    {mostrarSeparador&&(
-                      <div style={{display:'flex',alignItems:'center',gap:10,margin:'16px 0'}}>
-                        <div style={{flex:1,height:1,background:'var(--border)'}}/>
-                        <span className="pixel" style={{fontSize:6,color:'var(--text3)',padding:'0 8px',letterSpacing:1}}>{formatearFechaSeparador(m.created_at)}</span>
-                        <div style={{flex:1,height:1,background:'var(--border)'}}/>
-                      </div>
-                    )}
-                    <div style={{display:'flex',flexDirection:'column',alignItems:right?'flex-end':'flex-start',gap:3}}>
-                      <span className="pixel" style={{fontSize:6,color:'var(--text3)',padding:'0 4px'}}>{label}</span>
-                      <div style={{maxWidth:'74%',padding:'10px 13px',fontSize:14,lineHeight:1.5,borderRadius:4,border:'2px solid '+(m.rol==='cliente'?'var(--text)':bg),background:bg,color,boxShadow:'2px 2px 0 '+(m.rol==='cliente'?'var(--border2)':'rgba(42,31,14,.3)')}}>{citaBox}{contenido}</div>
-                      <span className="mono" style={{fontSize:12,color:'var(--text3)',padding:'0 4px',display:'flex',alignItems:'center',gap:4}}>
-                        {hora}
-                        {entrega&&<span title={entrega.tooltip} style={{color:entrega.color,fontSize:12}}>{entrega.icon}</span>}
-                      </span>
-                    </div>
-                  </React.Fragment>
-                );
+                return <MessageBubble key={i} m={m} mensajeAnterior={mensajes[i-1]||null} citado={citado}/>;
               })}
             </div>
             {showScrollBtn&&<div style={{position:'relative',display:'flex',justifyContent:'center',marginBottom:-1,zIndex:10}}>
